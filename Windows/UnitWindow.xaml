@@ -1,0 +1,35 @@
+﻿<Window x:Class="NetworksCeW.UnitWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:NetworksCeW"
+        mc:Ignorable="d"
+        Title="Options" Height="188" Width="280"  ResizeMode="CanMinimize" KeyDown="_KeyDown">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+            <RowDefinition Height="0*"/>
+            <RowDefinition/>
+            <RowDefinition
+                />
+        </Grid.RowDefinitions>
+
+        <Grid Margin="0,0,0,2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition/>
+                <ColumnDefinition/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="textBoxBufferSize" Margin="0" TextWrapping="Wrap" Text="Buffer size" Width="107" FontSize="17.333" HorizontalAlignment="Right" BorderBrush="White" AllowDrop="False" Focusable="False" IsHitTestVisible="False" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontFamily="Sylfaen" FontWeight="Bold" Height="30" VerticalAlignment="Bottom"/>
+            <TextBox x:Name="textBoxBufferRangeFrom" HorizontalAlignment="Right" Margin="0,0,48,0" TextWrapping="Wrap" Text="2000" Width="60" FontSize="18.667" BorderBrush="#FFFF0074" BorderThickness="4" Padding="0,-2,0,0" ToolTip="Range from" UndoLimit="4" Height="30" VerticalAlignment="Bottom" AllowDrop="False" MaxLength="4" MaxLines="1" HorizontalContentAlignment="Center" RenderTransformOrigin="0.214,0.292" Grid.Column="1"/>
+        </Grid>
+        <Grid Grid.Row="2">
+            <CheckBox x:Name="checkBoxDisabled" Content="is DISABLED" Margin="43,0,0,0" BorderBrush="#FFFF0074" BorderThickness="4" FontSize="16" ToolTip="Use interval" Padding="4,0,0,0" Height="24" VerticalAlignment="Center" Width="114" MinWidth="114" HorizontalAlignment="Left" Checked="checkBoxDisabled_Checked" Unchecked="checkBoxDisabled_Unchecked"/>
+        </Grid>
+        <Grid Margin="0" Grid.Row="3">
+            <Rectangle x:Name="RectangleButton" Fill="Transparent" Stroke="#FFFF0074" RadiusX="2" RadiusY="2" StrokeThickness="4" Width="100" Margin="81,0,81,9" HorizontalAlignment="Center" MouseLeftButtonUp="Rectangle_MouseLeftButtonUp" MouseEnter="RectangleButton_MouseEnter" MouseLeave="RectangleButton_MouseLeave" Height="30" VerticalAlignment="Center"/>
+            <TextBox x:Name="TextBoxSet" Height="17" Margin="0,13,0,0" TextWrapping="Wrap" Text="SET" Width="50" FontSize="17.333" BorderBrush="{x:Null}" AllowDrop="False" Focusable="False" IsHitTestVisible="False" HorizontalContentAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Center" FontFamily="Sylfaen" FontWeight="Bold" Padding="0,-4,0,0" HorizontalAlignment="Center" Background="{x:Null}"/>
+        </Grid>
+
+    </Grid>
+</Window>
