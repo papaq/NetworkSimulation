@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NetworksCeW"
         mc:Ignorable="d"
-        Title="NetCo" Height="450" Width="850" MinWidth="850" MinHeight="450" MouseLeftButtonUp="MainWindow1_MouseLeftButtonUp" MouseMove="MainWindow1_MouseMove" Icon="Resources/pinkNtw.ico" WindowStartupLocation="CenterScreen" SizeChanged="MainWindow1_SizeChanged" KeyDown="MainWindow1_KeyDown">
+        Title="NetCo" Height="450" Width="850" MinWidth="850" MinHeight="450" MouseLeftButtonUp="MainWindow1_MouseLeftButtonUp" MouseMove="MainWindow1_MouseMove" Icon="../Resources/pinkNtw.ico" WindowStartupLocation="CenterScreen" SizeChanged="MainWindow1_SizeChanged" KeyDown="MainWindow1_KeyDown">
     <Window.Resources>
 
         <Style TargetType="{x:Type ContextMenu}" x:Key="ContextMenuStyle">

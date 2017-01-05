@@ -71,6 +71,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ProtocolLayers\Layer3Protocol.cs" />
     <Compile Include="Structures\Buffer.cs" />
     <Compile Include="UnitWorkers\BufferWorker.cs" />
     <Compile Include="Windows\ConnectWindow.xaml.cs">

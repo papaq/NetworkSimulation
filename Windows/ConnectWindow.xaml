@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NetworksCeW"
         mc:Ignorable="d"
-        Title="Options" Height="346" Width="280" ScrollViewer.VerticalScrollBarVisibility="Disabled" ResizeMode="CanMinimize" WindowStartupLocation="CenterOwner" Icon="Resources/pinkPlug.ico" MinHeight="424" MinWidth="281" KeyDown="_KeyDown">
+        Title="Options" Height="346" Width="280" ScrollViewer.VerticalScrollBarVisibility="Disabled" ResizeMode="CanMinimize" WindowStartupLocation="CenterOwner" Icon="../Resources/pinkPlug.ico" MinHeight="424" MinWidth="281" KeyDown="_KeyDown">
 
     <Window.Resources>
 

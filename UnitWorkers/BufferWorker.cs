@@ -30,7 +30,7 @@ namespace NetworksCeW
 
         public BufferWorker(int connectionNum,  UnitTerminal terminal)
         {
-            Connection = MainWindow._listOfBinds.Find(bind => bind.Index == connectionNum);
+            Connection = MainWindow.ListOfBinds.Find(bind => bind.Index == connectionNum);
             _channelWidth = (int)(DefaultBitRate / Connection.Weight * (Connection.Satellite ? 0.1 : 1));
             _chanAsync = Connection.Duplex;
             _myTerminal = terminal;

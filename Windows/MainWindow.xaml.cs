@@ -58,7 +58,7 @@ namespace NetworksCeW
         // L I S T S
 
         private List<Unit> _listOfUnits = new List<Unit>();
-        public static List<Bind> _listOfBinds = new List<Bind>();
+        public static List<Bind> ListOfBinds = new List<Bind>();
         private List<Grid> _collectionOfUnitGrids = new List<Grid>();
         private List<Line> _collectionOfLines = new List<Line>();
 
@@ -143,7 +143,7 @@ namespace NetworksCeW
         {
             MyCanvas.Children.Clear();
             _listOfUnits.Clear();
-            _listOfBinds.Clear();
+            ListOfBinds.Clear();
             //_listOfRouteChoices.Clear();
 
             foreach (var grid in _collectionOfUnitGrids)
@@ -319,11 +319,11 @@ namespace NetworksCeW
         {
             _contextMenuBinding.Items.Add(EditBinding(true));
 
-            if (!_listOfBinds[_rightClickLine].Disabled)
+            if (!ListOfBinds[_rightClickLine].Disabled)
                 _contextMenuBinding.Items.Add(SetDisabledBinding(true));
             else
             {
-                var listOfCoUnitsIndexes = _listOfBinds[_rightClickLine].ListOfBothUnitsIndexes;
+                var listOfCoUnitsIndexes = ListOfBinds[_rightClickLine].ListOfBothUnitsIndexes;
                 if (!GetUnitByIndex(listOfCoUnitsIndexes[0]).Disabled
                     && !GetUnitByIndex(listOfCoUnitsIndexes[1]).Disabled)
                     _contextMenuBinding.Items.Add(SetEnabledBinding(true));
@@ -340,7 +340,7 @@ namespace NetworksCeW
                 if (_connectItem1 != -1)
                 {
                     _connectItem2 = _rightClickUnit;
-                    if (_listOfUnits[_connectItem1].GetListOfConnectedUnitsIndexes(_listOfBinds)
+                    if (_listOfUnits[_connectItem1].GetListOfConnectedUnitsIndexes(ListOfBinds)
                         .Contains(_listOfUnits[_connectItem2].Index) || _connectItem1 == _connectItem2)
                         _connectItem1 = _connectItem2 = -1;
                 }
@@ -516,7 +516,7 @@ namespace NetworksCeW
             unit1.AddBind(bind);
             unit2.AddBind(bind);
 
-            _listOfBinds.Add(bind);
+            ListOfBinds.Add(bind);
         }
 
         private void PutLine(Point p1, Point p2, bool satellite, string name, bool disabled)
@@ -598,7 +598,7 @@ namespace NetworksCeW
 
             foreach (var bindingIndex in _listOfUnits[_rightClickUnit].ListBindsIndexes)
             {
-                var binding = _listOfBinds.Find(bind => bind.Index == bindingIndex);
+                var binding = ListOfBinds.Find(bind => bind.Index == bindingIndex);
                 var line = (Line)MyCanvas.FindName("line" + binding.Index);
                 binding.Disabled = true;
                 if (line != null)
@@ -657,7 +657,7 @@ namespace NetworksCeW
             var listOfMyBindingsIndexes = _listOfUnits[whichUnit].ListBindsIndexes;
             while (listOfMyBindingsIndexes.Count > 0)
             {
-                DeleteBinding(_listOfBinds.IndexOf(_listOfBinds.Find(unit => unit.Index == listOfMyBindingsIndexes[0])));
+                DeleteBinding(ListOfBinds.IndexOf(ListOfBinds.Find(unit => unit.Index == listOfMyBindingsIndexes[0])));
             }
 
             DeleteGrid(whichUnit);
@@ -704,7 +704,7 @@ namespace NetworksCeW
 
         private void EditBinding_Click(object sender, RoutedEventArgs e)
         {
-            var bind = _listOfBinds[_rightClickLine];
+            var bind = ListOfBinds[_rightClickLine];
             var dialog = new ConnectWindow(bind.Weight, bind.Satellite, bind.Duplex, bind.Disabled,
                 _listOfUnits.Find(unit => unit.Index == bind.ListOfBothUnitsIndexes[0]).Disabled ||
                 _listOfUnits.Find(unit => unit.Index == bind.ListOfBothUnitsIndexes[1]).Disabled);
@@ -731,7 +731,7 @@ namespace NetworksCeW
 
         private void DisableBinding_Click(object sender, RoutedEventArgs e)
         {
-            _listOfBinds[_rightClickLine].Disabled = true;
+            ListOfBinds[_rightClickLine].Disabled = true;
             _collectionOfLines[_rightClickLine].Stroke = Brushes.DarkGray;
             UpdateInfoBox();
 
@@ -741,7 +741,7 @@ namespace NetworksCeW
         private void EnableBinding_Click(object sender, RoutedEventArgs e)
         {
 
-            _listOfBinds[_rightClickLine].Disabled = false;
+            ListOfBinds[_rightClickLine].Disabled = false;
             _collectionOfLines[_rightClickLine].Stroke = _blueMenuSelectBrush;
             UpdateInfoBox();
 
@@ -755,17 +755,17 @@ namespace NetworksCeW
 
             DeleteLine(lineNumber);
 
-            var listOfBothUnitsIndexes = _listOfBinds[lineNumber].ListOfBothUnitsIndexes;
+            var listOfBothUnitsIndexes = ListOfBinds[lineNumber].ListOfBothUnitsIndexes;
             Unit unit1 = GetUnitByIndex(listOfBothUnitsIndexes[0]);
             Unit unit2 = GetUnitByIndex(listOfBothUnitsIndexes[1]);
 
-            unit1.ListBindsIndexes.Remove(_listOfBinds[lineNumber].Index);
-            unit2.ListBindsIndexes.Remove(_listOfBinds[lineNumber].Index);
+            unit1.ListBindsIndexes.Remove(ListOfBinds[lineNumber].Index);
+            unit2.ListBindsIndexes.Remove(ListOfBinds[lineNumber].Index);
 
             UpdateTerminal(unit1);
             UpdateTerminal(unit2);
 
-            _listOfBinds.RemoveAt(lineNumber);
+            ListOfBinds.RemoveAt(lineNumber);
 
             _leftClickLine = _rightClickLine = _enterLine = -1;
         }
@@ -832,7 +832,7 @@ namespace NetworksCeW
                 mygrd.Margin = new Thickness(currentPosition.X - Grgr * .5, currentPosition.Y - Grgr * .5, 0, 0);
                 unit.Position = currentPosition;
 
-                foreach (var bind in _listOfBinds)
+                foreach (var bind in ListOfBinds)
                 {
                     Line line;
                     if (bind.ConnectsUnit(unit.Index) && (line = (Line)MyCanvas.FindName("line" + bind.Index)) != null)
@@ -850,7 +850,7 @@ namespace NetworksCeW
             label.Content = e.GetPosition(MainWindow1);
 
             labelUnits.Content = _listOfUnits.Count;
-            labelBindings.Content = _listOfBinds.Count;
+            labelBindings.Content = ListOfBinds.Count;
             labelGrids.Content = _collectionOfUnitGrids.Count;
             labelLines.Content = _collectionOfLines.Count;
 
@@ -909,7 +909,7 @@ namespace NetworksCeW
             var i = 0;
             foreach (var line in _collectionOfLines)
                 if (i++ != _leftClickLine)
-                    line.Stroke = _listOfBinds[i - 1].Disabled
+                    line.Stroke = ListOfBinds[i - 1].Disabled
                         ? Brushes.DarkGray
                         : _blueMenuSelectBrush;
         }
@@ -947,7 +947,7 @@ namespace NetworksCeW
             var listInfo = new List<Info>
             {
                 new Info() {Category = "Binding:", Value = ""},
-                new Info() {Category = "Index", Value = _listOfBinds.IndexOf(bind).ToString()},
+                new Info() {Category = "Index", Value = ListOfBinds.IndexOf(bind).ToString()},
                 new Info() {Category = "Status", Value = bind.Disabled ? "Disabled" : "Enabled"},
                 new Info() {Category = "Weight", Value = bind.Weight.ToString()},
                 new Info() {Category = "Connection", Value = bind.Satellite ? "Satellite" : "Nonsatellite"},
@@ -963,7 +963,7 @@ namespace NetworksCeW
         {
 
             var unitsCount = _listOfUnits.Count;
-            var bindsCount = _listOfBinds.Count;
+            var bindsCount = ListOfBinds.Count;
 
             var listInfo = new List<Info>
             {
@@ -996,8 +996,8 @@ namespace NetworksCeW
                 _leftClickUnit = -1;
                 _leftClickLine = _enterLine;
 
-                if (_listOfBinds.Count > _leftClickLine)
-                    FillInfo(_listOfBinds[_leftClickLine]);
+                if (ListOfBinds.Count > _leftClickLine)
+                    FillInfo(ListOfBinds[_leftClickLine]);
             }
             else
             {
@@ -1016,7 +1016,7 @@ namespace NetworksCeW
                 && Keyboard.IsKeyDown(Key.C) 
                 && _leftClickUnit != -1 
                 && _leftClickUnit != _enterUnit
-                && !_listOfUnits[_enterUnit].GetListOfConnectedUnitsIndexes(_listOfBinds)
+                && !_listOfUnits[_enterUnit].GetListOfConnectedUnitsIndexes(ListOfBinds)
                     .Contains(_listOfUnits[_leftClickUnit].Index))
             {
                 var unit1 = _listOfUnits[_leftClickUnit];
@@ -1063,7 +1063,7 @@ namespace NetworksCeW
 
                 FileBackup.ListOfBinds.Clear();
                 FileBackup.ListOfUnits.Clear();
-                FileBackup.ListOfBinds.AddRange(_listOfBinds);
+                FileBackup.ListOfBinds.AddRange(ListOfBinds);
                 FileBackup.ListOfUnits.AddRange(_listOfUnits);
 
                 FileBackup.PreCoverBindsResize(MyCanvas.ActualWidth,
@@ -1184,7 +1184,7 @@ namespace NetworksCeW
             {
                 var unit1 = _listOfUnits[rnd.Next(fromUnit, toUnit + 1)];
                 var unit2 = _listOfUnits[rnd.Next(fromUnit, toUnit + 1)];
-                if (unit1 == unit2 || _listOfBinds.Find(bind =>
+                if (unit1 == unit2 || ListOfBinds.Find(bind =>
                     bind.ListOfBothUnitsIndexes.Contains(unit1.Index) &&
                     bind.ListOfBothUnitsIndexes.Contains(unit2.Index)) != null)
                     continue;
@@ -1200,7 +1200,7 @@ namespace NetworksCeW
         private void ReachRequiredDegree(double requiredDegree, Random rnd, int from, int to)
         {
             var numOfUnits = _listOfUnits.Count;
-            var numOfBinds = _listOfBinds.Count;
+            var numOfBinds = ListOfBinds.Count;
             var fromNextCounter = from;
             if (to == 0)
                 to = _listOfUnits.Count;
@@ -1208,7 +1208,7 @@ namespace NetworksCeW
             {
                 var unit1 = _listOfUnits[fromNextCounter];
                 var unit2 = _listOfUnits[rnd.Next(from, to)];
-                if (unit1 == unit2 || _listOfBinds.Find(bind =>
+                if (unit1 == unit2 || ListOfBinds.Find(bind =>
                     bind.ListOfBothUnitsIndexes.Contains(unit1.Index) &&
                     bind.ListOfBothUnitsIndexes.Contains(unit2.Index)) != null)
                     continue;
@@ -1228,12 +1228,12 @@ namespace NetworksCeW
         private void ReachRequiredDegree(double requiredDegree, Random rnd)
         {
             var numOfUnits = _listOfUnits.Count;
-            var numOfBinds = _listOfBinds.Count;
+            var numOfBinds = ListOfBinds.Count;
             while (numOfBinds < numOfUnits * requiredDegree / 2)
             {
                 var unit1 = _listOfUnits[rnd.Next(0, _listOfUnits.Count)];
                 var unit2 = _listOfUnits[rnd.Next(0, _listOfUnits.Count)];
-                if (unit1 == unit2 || _listOfBinds.Find(bind =>
+                if (unit1 == unit2 || ListOfBinds.Find(bind =>
                     bind.ListOfBothUnitsIndexes.Contains(unit1.Index) &&
                     bind.ListOfBothUnitsIndexes.Contains(unit2.Index)) != null)
                     continue;
@@ -1261,10 +1261,10 @@ namespace NetworksCeW
 
             _listOfUnits.Clear();
             _listOfUnits.AddRange(FileBackup.ListOfUnits);
-            _listOfBinds.Clear();
-            _listOfBinds.AddRange(FileBackup.ListOfBinds);
+            ListOfBinds.Clear();
+            ListOfBinds.AddRange(FileBackup.ListOfBinds);
 
-            if (_listOfUnits == null || _listOfBinds == null)
+            if (_listOfUnits == null || ListOfBinds == null)
             {
                 CreateRandomNetwork();
                 return;
@@ -1273,11 +1273,11 @@ namespace NetworksCeW
             foreach (var unit in _listOfUnits)
                 PutEllipse(unit.Position, unit.Index, unit.Buffer);
 
-            foreach (var bind in _listOfBinds)
+            foreach (var bind in ListOfBinds)
                 PutLine(bind.A, bind.B, bind.Satellite, "line" + bind.Index, bind.Disabled);
 
             _currentUnitIndex = _listOfUnits.Count == 0 ? -1 : _listOfUnits.Last().Index;
-            _currentBindIndex = _listOfBinds.Count == 0 ? -1 : _listOfBinds.Last().Index;
+            _currentBindIndex = ListOfBinds.Count == 0 ? -1 : ListOfBinds.Last().Index;
         }
 
         private void ComboChooseCreate_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1355,7 +1355,7 @@ namespace NetworksCeW
 
             foreach (var line in _collectionOfLines)
             {
-                var binding = _listOfBinds.Find(bind => bind.Index == Convert.ToInt16(line.Name.Substring(4)));
+                var binding = ListOfBinds.Find(bind => bind.Index == Convert.ToInt16(line.Name.Substring(4)));
                 binding.A = new Point(line.X1 = binding.A.X * reX, line.Y1 = binding.A.Y * reY);
                 binding.B = new Point(line.X2 = binding.B.X * reX, line.Y2 = binding.B.Y * reY);
             }

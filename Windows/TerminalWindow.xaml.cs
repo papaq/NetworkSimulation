@@ -85,7 +85,7 @@ namespace NetworksCeW
             ListViewBuffers.ItemsSource = null;
             foreach (var index in _unit.ListBindsIndexes)
             {
-                int toUnit = MainWindow._listOfBinds.Find(
+                int toUnit = MainWindow.ListOfBinds.Find(
                         bind => bind.Index == index
                         ).GetSecondUnitIndex(_unit.Index);
                 AddItem(new BufferBusy()
