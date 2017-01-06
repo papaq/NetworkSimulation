@@ -17,10 +17,12 @@ namespace NetworksCeW.UnitWorkers
         public List<BufferWorker> ListBufferWorkers;
 
         private Thread _unitWorker;
-        private Structures.Unit _unit;
+        private Unit _unit;
 
         private UnitTerminal _myTerminal;
         private List<UnitTerminal> _listOfTerminals;
+
+        private byte _congestion = 1;
 
         // Protocols' instances
         private Layer3Protocol _layer3Protocol;
@@ -90,22 +92,37 @@ namespace NetworksCeW.UnitWorkers
             StartAllBufferWorkers();
         }
 
+        /// <summary>
+        /// Status must be shared to all unitWorkers each 30 seconds
+        /// </summary>
         private void ShareMyStatus()
         {
+            var myConnections = new List<ToUnitConnection>();
+            foreach (var bind in _unit.ListBindsIndexes)
+            {
+                var actualBind = Windows.MainWindow.ListOfBinds.Find(b => b.Index == bind);
+                myConnections.Add(new ToUnitConnection()
+                {
+                    ToUnit = actualBind.GetSecondUnitIndex(_unit.Index),
+                    BandWidth = actualBind.Weight
+                });
+            }
 
+            var datagram = _layer3Protocol.PackData(
+                _layer3Protocol.MakeStatusData(myConnections),
+                _congestion,
+                0,
+                2,
+                0,
+                100,
+                Layer3Protocol.RTP,
+                _unit.Index,
+                Layer3Protocol.BRDCST );
+
+            // Put datagram into buffer out list
         }
 
-        private List<byte> PackLayer3Protocol(List<byte> data, int destination)
-        {
-            var datagram = new List<byte>();
-
-
-            return datagram;
-        }
-
-        private List<byte> MakeStatusData()
-        {
-            return new List<byte>();
-        }
+        
+        
     }
 }
