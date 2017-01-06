@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using NetworksCeW.ProtocolLayers;
+using NetworksCeW.Structures;
 
 namespace NetworksCeW.UnitWorkers
 {
@@ -21,14 +23,15 @@ namespace NetworksCeW.UnitWorkers
         private List<UnitTerminal> _listOfTerminals;
 
         // Protocols' instances
-        private ProtocolLayers.Layer3Protocol _layer3Protocol;
+        private Layer3Protocol _layer3Protocol;
 
-        public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Structures.Unit unit)
+        public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
         {
             _myTerminal = terminal;
             _listOfTerminals = listTerminals;
             _unit = unit;
             ListBufferWorkers = new List<BufferWorker>();
+            _layer3Protocol = new Layer3Protocol(unit.Index);
         }
 
         public void WorkerStart()
@@ -98,6 +101,11 @@ namespace NetworksCeW.UnitWorkers
 
 
             return datagram;
+        }
+
+        private List<byte> MakeStatusData()
+        {
+            return new List<byte>();
         }
     }
 }

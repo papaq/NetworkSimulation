@@ -2,13 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-//using NetworksCeW.Structures;
 
 namespace NetworksCeW.ProtocolLayers
 {
-    
-
     class Layer3Protocol
     {
         /// <summary>
@@ -61,13 +57,13 @@ namespace NetworksCeW.ProtocolLayers
             }
         }
 
-        private const byte VERSION = 0x04;
-        private const byte DSCP = 0x0;
-        private const byte TCP = 0x06;
-        private const byte UDP = 0x11;
-        private const byte RTP = 0x55;
+        public const byte VERSION = 0x04;
+        public const byte DSCP = 0x0;
+        public const byte TCP = 0x06;
+        public const byte UDP = 0x11;
+        public const byte RTP = 0x55;
 
-        private const int TIMEOUT = 60000;
+        public const int TIMEOUT = 60000;
 
         private readonly int myUnitIndex;
 
@@ -134,8 +130,14 @@ namespace NetworksCeW.ProtocolLayers
 
         private int CountCheckSum(List<byte> header)
         {
-            // Count CheckSum
-            return 0;
+            header[10] = header[11] = 0;
+            int checkSum = 0;
+            for (int i = 0; i < header.Count; i++)
+                checkSum += header[i];
+
+            checkSum = ShiftLeft(GetFourthByte(checkSum), 8) +
+                GetThirdByte(checkSum) + (checkSum & 0xFFF0000);
+            return checkSum;
         }
 
         private List<byte> PutSourceAddress(int myAddr)
@@ -205,7 +207,9 @@ namespace NetworksCeW.ProtocolLayers
 
         // T O P O L O G Y
 
-
+        /// <summary>
+        /// Updates the whole table of units and destinations
+        /// </summary>
         public void UpdateNetworkTopology()
         {
             DateTime time = new DateTime();
@@ -234,6 +238,11 @@ namespace NetworksCeW.ProtocolLayers
             }
         }
 
+        /// <summary>
+        /// Updates or writes anew a record about the unit
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <param name="data"></param>
         public void UpdateUnitInformation(int unit, List<byte> data)
         {
             var connections = GetConnectionsFromBytes(data);
@@ -318,6 +327,11 @@ namespace NetworksCeW.ProtocolLayers
             }
         }
 
+        /// <summary>
+        /// Converts list of bytes into a list of possible destinations and channel's bandwidth
+        /// </summary>
+        /// <param name="list"></param>
+        /// <returns></returns>
         private List<ToUnitConnection> GetConnectionsFromBytes(List<byte> list)
         {
             int count = list.Count / 8;
@@ -338,7 +352,9 @@ namespace NetworksCeW.ProtocolLayers
 
         // R O U T I N G
 
-        
+        /// <summary>
+        /// Finds all possible routes for this unit anew
+        /// </summary>
         private void RebuildRoutes()
         {
             // Null route list
@@ -365,6 +381,13 @@ namespace NetworksCeW.ProtocolLayers
             
         }
 
+        /// <summary>
+        /// Recursive pass through all graph's units
+        /// </summary>
+        /// <param name="unit"></param>
+        /// <param name="passedUnits"></param>
+        /// <param name="routeLen"></param>
+        /// <param name="maxWidth"></param>
         private void GoThroughAllRoutes(int unit, List<int> passedUnits, int routeLen, int maxWidth)
         {
             // Add current unit
