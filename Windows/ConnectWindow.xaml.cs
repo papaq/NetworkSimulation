@@ -12,7 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-namespace NetworksCeW
+namespace NetworksCeW.Windows
 {
     /// <summary>
     /// Interaction logic for ConnectWindow.xaml

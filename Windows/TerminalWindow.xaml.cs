@@ -11,8 +11,9 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using NetworksCeW.Structures;
 
-namespace NetworksCeW
+namespace NetworksCeW.Windows
 {
     /// <summary>
     /// Structure for outputting log information

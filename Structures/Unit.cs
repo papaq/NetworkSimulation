@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Shapes;
 
-namespace NetworksCeW
+namespace NetworksCeW.Structures
 {
     /// <summary>
     /// Unit structure, describes all information about it

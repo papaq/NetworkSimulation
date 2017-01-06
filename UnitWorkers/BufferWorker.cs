@@ -4,7 +4,9 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace NetworksCeW
+using NetworksCeW.Structures;
+
+namespace NetworksCeW.UnitWorkers
 {
     /// <summary>
     /// Buffer class, sends and receives frames, uses Data link layer protocol
@@ -21,7 +23,7 @@ namespace NetworksCeW
 
         private const int DefaultBitRate = 37800;
 
-        private Layer2Protocol _layer2p;
+        private ProtocolLayers.Layer2Protocol _layer2p;
         private Thread _bufferWorker;
         private int _channelWidth;
         private bool _chanAsync;
@@ -30,7 +32,7 @@ namespace NetworksCeW
 
         public BufferWorker(int connectionNum,  UnitTerminal terminal)
         {
-            Connection = MainWindow.ListOfBinds.Find(bind => bind.Index == connectionNum);
+            Connection = NetworksCeW.Windows.MainWindow.ListOfBinds.Find(bind => bind.Index == connectionNum);
             _channelWidth = (int)(DefaultBitRate / Connection.Weight * (Connection.Satellite ? 0.1 : 1));
             _chanAsync = Connection.Duplex;
             _myTerminal = terminal;

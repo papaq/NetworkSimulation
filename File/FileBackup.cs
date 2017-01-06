@@ -7,8 +7,9 @@ using System.Windows.Shapes;
 using System.Windows.Controls;
 using System.Xml.Serialization;
 using System.Windows;
+using NetworksCeW.Structures;
 
-namespace NetworksCeW
+namespace NetworksCeW.File
 {
     internal static class FileBackup
     {
@@ -90,7 +91,7 @@ namespace NetworksCeW
 
             try
             {
-                stream = File.OpenWrite(path + "\\" + file);
+                stream = System.IO.File.OpenWrite(path + "\\" + file);
             }
             catch
             {
@@ -109,7 +110,7 @@ namespace NetworksCeW
 
             try
             {
-                stream = File.OpenRead(path + "\\" + file);
+                stream = System.IO.File.OpenRead(path + "\\" + file);
             }
             catch
             {

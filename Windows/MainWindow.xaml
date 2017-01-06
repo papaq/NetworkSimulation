@@ -1,9 +1,9 @@
-﻿<Window x:Name="MainWindow1" x:Class="NetworksCeW.MainWindow"
+﻿<Window x:Name="MainWindow1" x:Class="NetworksCeW.Windows.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:NetworksCeW"
+        xmlns:local="clr-namespace:NetworksCeW.Windows"
         mc:Ignorable="d"
         Title="NetCo" Height="450" Width="850" MinWidth="850" MinHeight="450" MouseLeftButtonUp="MainWindow1_MouseLeftButtonUp" MouseMove="MainWindow1_MouseMove" Icon="../Resources/pinkNtw.ico" WindowStartupLocation="CenterScreen" SizeChanged="MainWindow1_SizeChanged" KeyDown="MainWindow1_KeyDown">
     <Window.Resources>

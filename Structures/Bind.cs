@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Shapes;
 
-namespace NetworksCeW
+namespace NetworksCeW.Structures
 {
     public class Bind
     {

@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace NetworksCeW
+namespace NetworksCeW.UnitWorkers
 {
     /// <summary>
     /// Comprises all protocol layers, enables units communication
@@ -15,12 +15,15 @@ namespace NetworksCeW
         public List<BufferWorker> ListBufferWorkers;
 
         private Thread _unitWorker;
-        private Unit _unit;
+        private Structures.Unit _unit;
 
         private UnitTerminal _myTerminal;
         private List<UnitTerminal> _listOfTerminals;
 
-        public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
+        // Protocols' instances
+        private ProtocolLayers.Layer3Protocol _layer3Protocol;
+
+        public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Structures.Unit unit)
         {
             _myTerminal = terminal;
             _listOfTerminals = listTerminals;
@@ -54,13 +57,11 @@ namespace NetworksCeW
             Thread.Sleep(10000);
             foreach (var buff in ListBufferWorkers)
             {
-                buff.InitEndPointQueue(_listOfTerminals.Find(
-                    term => term.Unit.ListBindsIndexes.Contains(
-                        buff.Connection.Index
-                        )
-                    ).UnitWorker.ListBufferWorkers.Find(
-                    buffWorker => buffWorker.Connection.Index == buff.Connection.Index).In
-                    );
+                buff.InitEndPointQueue(
+                    _listOfTerminals.Find(
+                        term => term.UnitInst.ListBindsIndexes.Contains(buff.Connection.Index))
+                        .UnitWorker.ListBufferWorkers.Find(
+                        buffWorker => buffWorker.Connection.Index == buff.Connection.Index).In);
             }
         }
 
@@ -84,6 +85,19 @@ namespace NetworksCeW
         {
             InitBufferWorkers();
             StartAllBufferWorkers();
+        }
+
+        private void ShareMyStatus()
+        {
+
+        }
+
+        private List<byte> PackLayer3Protocol(List<byte> data, int destination)
+        {
+            var datagram = new List<byte>();
+
+
+            return datagram;
         }
     }
 }

@@ -3,24 +3,26 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using NetworksCeW.Structures;
+using NetworksCeW.Windows;
 
-namespace NetworksCeW
+namespace NetworksCeW.UnitWorkers
 {
     /// <summary>
     /// Combines Unit protocol layers and unit terminal
     /// </summary>
     public class UnitTerminal
     {
-        public Unit Unit;
+        public Unit UnitInst;
         public UnitWorker UnitWorker;
 
         private TerminalWindow _terminal;
 
         public UnitTerminal(Unit unit, List<UnitTerminal> listTerminals)
         {
-            Unit = unit;
-            _terminal = new TerminalWindow(Unit);
-            UnitWorker = new UnitWorker(this, listTerminals, Unit);
+            UnitInst = unit;
+            _terminal = new TerminalWindow(UnitInst);
+            UnitWorker = new UnitWorker(this, listTerminals, UnitInst);
         }
 
         public void OpenTerminal()
@@ -30,7 +32,7 @@ namespace NetworksCeW
                 return;
             }
 
-            _terminal = new TerminalWindow(Unit);
+            _terminal = new TerminalWindow(UnitInst);
             _terminal.Show();
         }
 

@@ -9,7 +9,11 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
 
-namespace NetworksCeW
+using NetworksCeW.Structures;
+using NetworksCeW.UnitWorkers;
+using NetworksCeW.File;
+
+namespace NetworksCeW.Windows
 {
     /// <summary>
     /// Interaction logic for MainWindow.xaml
@@ -699,7 +703,7 @@ namespace NetworksCeW
 
         private void OpenTerminal_Click(object sender, RoutedEventArgs e)
         {
-            ListOfTerminals.Find(item => item.Unit.Index == _rightClickUnit).OpenTerminal();
+            ListOfTerminals.Find(item => item.UnitInst.Index == _rightClickUnit).OpenTerminal();
         }       
 
         private void EditBinding_Click(object sender, RoutedEventArgs e)
@@ -1079,7 +1083,7 @@ namespace NetworksCeW
 
         private void UpdateTerminal(Unit unit)
         {
-            UnitTerminal term = ListOfTerminals.Find(t => t.Unit == unit);
+            UnitTerminal term = ListOfTerminals.Find(t => t.UnitInst == unit);
             if (term != null)
             {
                 term.UpdateBuffersNumber(unit);
@@ -1088,7 +1092,7 @@ namespace NetworksCeW
 
         private void DeleteTerminal(Unit unit)
         {
-            UnitTerminal term = ListOfTerminals.Find(t => t.Unit == unit);
+            UnitTerminal term = ListOfTerminals.Find(t => t.UnitInst == unit);
             if (term != null)
             {
                 term.DeleteUnit(unit);
