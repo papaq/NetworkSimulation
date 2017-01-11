@@ -28,9 +28,7 @@ namespace NetworksCeW.UnitWorkers
         public void OpenTerminal()
         {
             if (_terminal != null && _terminal.IsVisible == true)
-            {
                 return;
-            }
 
             _terminal = new TerminalWindow(UnitInst);
             _terminal.Show();
@@ -40,6 +38,15 @@ namespace NetworksCeW.UnitWorkers
         {
             _terminal.UpdateUnit(unit);
             _terminal.Update();
+        }
+
+        public void UpdateBufferState(byte busy)
+        {
+            _terminal.UpdateItem(new BufferBusy()
+            {
+                ToUnit = UnitInst.Index,
+                Utilization = busy.ToString() + "%"
+            });
         }
 
         public void DeleteUnit(Unit unit)

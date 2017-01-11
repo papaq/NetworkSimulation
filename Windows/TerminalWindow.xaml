@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NetworksCeW.Windows"
         mc:Ignorable="d"
-        Title="Terminal" Height="331.579" Width="300" ResizeMode="NoResize">
+        Title="Terminal" Height="331.579" Width="300">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition/>
@@ -78,7 +78,7 @@
                                 </Style>
                             </GridView.ColumnHeaderContainerStyle>
                             <GridViewColumn Header="Time" Width="70" DisplayMemberBinding="{Binding Time}" />
-                            <GridViewColumn Header="Info" Width="100" DisplayMemberBinding="{Binding Info}" />
+                            <GridViewColumn Header="Info" Width="170" DisplayMemberBinding="{Binding Info}" />
                         </GridView>
                     </ListView.View>
                 </ListView>

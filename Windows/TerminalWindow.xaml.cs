@@ -83,7 +83,11 @@ namespace NetworksCeW.Windows
             List<BufferBusy> listOfBuffers = new List<BufferBusy>(_listOfBuffers);
             _listOfBuffers.Clear();
 
-            ListViewBuffers.ItemsSource = null;
+            Dispatcher.Invoke(() =>
+            {
+                ListViewBuffers.ItemsSource = null;
+            });
+            
             foreach (var index in _unit.ListBindsIndexes)
             {
                 int toUnit = MainWindow.ListOfBinds.Find(
@@ -97,7 +101,11 @@ namespace NetworksCeW.Windows
                     : "0%"
                 });
             }
-            ListViewBuffers.ItemsSource = _listOfBuffers;
+
+            Dispatcher.Invoke(() =>
+            {
+                ListViewBuffers.ItemsSource = _listOfBuffers;
+            });
         }
 
         public void AddItem(BufferBusy item)

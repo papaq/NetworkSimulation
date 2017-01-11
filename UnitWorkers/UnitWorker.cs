@@ -51,22 +51,20 @@ namespace NetworksCeW.UnitWorkers
         private void InitBufferWorkers()
         {
             if (_unit.ListBindsIndexes.Count == 0)
-            {
                 return;
-            }
 
             for (int i = 0; i < _unit.ListBindsIndexes.Count; i++)
-            {
-                ListBufferWorkers.Add(new BufferWorker(_unit.ListBindsIndexes[i], _myTerminal));
-            }
-            Thread.Sleep(10000);
+                ListBufferWorkers.Add(new BufferWorker(_unit.ListBindsIndexes[i], _myTerminal, _unit.Buffer));
+
+            Thread.Sleep(2000);
+
             foreach (var buff in ListBufferWorkers)
             {
-                buff.InitEndPointQueue(
+                int otherUnit = buff.Connection.GetSecondUnitIndex(_unit.Index);
+                buff.InitEndPointWorker(
                     _listOfTerminals.Find(
-                        term => term.UnitInst.ListBindsIndexes.Contains(buff.Connection.Index))
-                        .UnitWorker.ListBufferWorkers.Find(
-                        buffWorker => buffWorker.Connection.Index == buff.Connection.Index).In);
+                        term => term.UnitInst.Index == otherUnit).UnitWorker.ListBufferWorkers.Find(
+                        b => b.Connection.Index == buff.Connection.Index));
             }
         }
 
@@ -90,6 +88,14 @@ namespace NetworksCeW.UnitWorkers
         {
             InitBufferWorkers();
             StartAllBufferWorkers();
+
+            while (true)
+            {
+                foreach (var buff in ListBufferWorkers)
+                    _myTerminal.UpdateBufferState(buff.CountBufferBusy());
+
+                Thread.Sleep(1000);
+            }
         }
 
         /// <summary>

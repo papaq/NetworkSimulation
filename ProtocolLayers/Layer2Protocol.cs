@@ -6,162 +6,163 @@ using System.Threading.Tasks;
 
 namespace NetworksCeW.ProtocolLayers
 {
+    class Layer2ProtocolFrameInstance
+    {
+        public FrameType Type { get; set; }
+        public byte FrameNum { get; set; }
+        public List<byte> Data { get; set; }
+    }
+
+    enum FrameType
+    {
+        start_init = 0, 
+        finish_init = 4,
+        ack = 2,
+        nack = 3,
+        marker_pass = 1,
+        null_counter = 5,
+        information = 7,
+        info_and_null = 6
+    }
+
     class Layer2Protocol
     {
-        private Queue<List<byte>> packetParts;
+        private const byte FLAG = 0x7E;
 
-        public List<byte> Packet;
-        //public List<List<byte>> Frames;
+        public Layer2Protocol() { }
 
-
-
-        private const int MTU = 296;
-        private const byte SNRM = 1;
-        private const byte SARM = 24;
-        private const byte RD = 3;
-        private const byte DISC = 2;
-
-        public Layer2Protocol()
+        private byte PutFlagByte()
         {
+            return FLAG;
+        }
+
+        private byte PutControlByte(FrameType type, byte frameNum)
+        {
+            byte cByte = (byte)ShiftLeft((int)type, 5);
             
-        }
-
-        public List<byte> RequestConnection(bool async)
-        {
-            if (async)
-            {
-                return EncodeUFrame(SARM);
-            }
-
-            return EncodeUFrame(SNRM);
-        }
-
-        public void LoadPacket(List<byte> packet)
-        {
-            Packet = packet;
-            DividePacket();
-        }
-
-        private void PutFlag(List<byte> frame)
-        {
-            frame.Add(0x7E);
+            return (byte)(cByte + frameNum);
         }
         
-        private void PutControl(List<byte> frame, byte control)
+        private List<byte> PutFCS(List<byte> frame)
         {
-            frame.Add(control);
-        }
-
-        private void PutData(List<byte> frame, List<byte> data)
-        {
-            frame.AddRange(data);
-        }
-
-        private void ShiftLeft(ref byte what, int times)
-        {
-            what = (byte)(what << times);
-        }
-
-        private List<byte> EncodeIFrame(List<byte> data, byte numSend, byte numRec)
-        {
-            List<byte> frame = new List<byte>();
-            PutFlag(frame);
-            PutControl(frame, EncodeIControlByte(numSend, numRec));
-            PutData(frame, packetParts.Dequeue());
-            PutFlag(frame);
-
-            return frame;
-        }
-
-        private void DecodeIFrame(List<byte> data)
-        {
-
-        }
-
-        private List<byte> EncodeSFrame(byte numRec, byte type)
-        {
-            List<byte> frame = new List<byte>();
-            PutFlag(frame);
-            PutControl(frame, EncodeSControlByte(numRec, type));
-            PutFlag(frame);
-
-            return frame;
-        }
-
-        private void DecodeSFrame(List<byte> data)
-        {
-
-        }
-
-        private List<byte> EncodeUFrame(byte type)
-        {
-            List<byte> frame = new List<byte>();
-            PutFlag(frame);
-            PutControl(frame, EncodeUControlByte(type));
-            PutFlag(frame);
-
-            return frame;
-        }
-
-        private void DecodeUFrame(List<byte> data)
-        {
-
-        }
-
-        private void DividePacket()
-        {
-            for (int i = 0; i < Packet.Count; i+=MTU)
+            int chksum = 0;
+            for (int i = 1; i < frame.Count-3; i++)
             {
-                packetParts.Enqueue(Packet.GetRange(i, i <= Packet.Count - MTU ? MTU : Packet.Count - i + 1));
+                chksum += frame[i];
             }
+            chksum = 0xFFFF - (chksum & 0xFFFF);
+
+            return new List<byte>()
+            {
+                (byte)ShiftRight(chksum, 8),
+                (byte)chksum
+            };
         }
 
-        private byte EncodeIControlByte(byte numSend, byte numRec)
+        private int ShiftLeft(int what, int times)
         {
-            byte b = numRec;
-            ShiftLeft(ref b, 4);
-            b += numSend;
-            ShiftLeft(ref b, 4);
-            return b;
+            return (what << times);
         }
 
-        private byte DecodeIControlByte()
+        private int ShiftRight(int what, int times)
         {
-
-            return 1;
+            return (what >> times);
         }
 
-        private byte EncodeSControlByte(byte numRec, byte type)
+        private FrameType GetFrameType(byte controlByte)
         {
-            byte b = numRec;
-            ShiftLeft(ref b, 3);
-            b += type;
-            ShiftLeft(ref b, 2);
-            b += 1;
-            return b;
+            return (FrameType)ShiftRight(controlByte, 5);
         }
 
-        private byte DecodeSControlByte()
+        private byte GetFrameNum(byte controlByte)
         {
-
-            return 1;
+            return (byte)(controlByte & 31);
         }
 
-        private byte EncodeUControlByte(byte type)
+
+        #region Global need funcs
+
+        public List<byte> PackData(List<byte> data, FrameType type)
         {
-            byte lowerType = (byte)(type & 0x3);
-            byte b = (byte)(type & 0x1C);
-            ShiftLeft(ref b, 1);
-            b += lowerType;
-            ShiftLeft(ref b, 2);
-            b += 3;
-            return b;
+            var informationFrame = new List<byte>() { PutFlagByte() };
+            informationFrame.Add(PutControlByte(type, 0));
+            informationFrame.AddRange(data);
+            informationFrame.Add(0);
+            informationFrame.Add(0);
+            informationFrame.Add(PutFlagByte());
+
+            var fcs = PutFCS(informationFrame);
+            informationFrame[informationFrame.Count - 3] = fcs[0];
+            informationFrame[informationFrame.Count - 2] = fcs[1];
+
+            return informationFrame;
         }
 
-        private byte DecodeUControlByte()
+        public List<byte> AskConnection(bool start)
         {
+            var controlFrame = new List<byte>() { PutFlagByte() };
+            controlFrame.Add(PutControlByte(FrameType.start_init, 0));
+            controlFrame.Add(0);
+            controlFrame.Add(0);
+            controlFrame.Add(PutFlagByte());
 
-            return 1;
+            var fcs = PutFCS(controlFrame);
+            controlFrame[controlFrame.Count - 3] = fcs[0];
+            controlFrame[controlFrame.Count - 2] = fcs[1];
+
+            return controlFrame;
         }
+
+        public List<byte> ConfirmConnection(bool confirm)
+        {
+            var controlFrame = new List<byte>() { PutFlagByte() };
+            controlFrame.Add(PutControlByte(confirm ? FrameType.ack : FrameType.nack, 0));
+            controlFrame.Add(0);
+            controlFrame.Add(0);
+            controlFrame.Add(PutFlagByte());
+
+            var fcs = PutFCS(controlFrame);
+            controlFrame[controlFrame.Count - 3] = fcs[0];
+            controlFrame[controlFrame.Count - 2] = fcs[1];
+
+            return controlFrame;
+        }
+
+        public List<byte> PassMarker()
+        {
+            var controlFrame = new List<byte>() { PutFlagByte() };
+            controlFrame.Add(PutControlByte(FrameType.marker_pass, 0));
+            controlFrame.Add(0);
+            controlFrame.Add(0);
+            controlFrame.Add(PutFlagByte());
+
+            var fcs = PutFCS(controlFrame);
+            controlFrame[controlFrame.Count - 3] = fcs[0];
+            controlFrame[controlFrame.Count - 2] = fcs[1];
+
+            return controlFrame;
+        }
+
+
+        public Layer2ProtocolFrameInstance Unpack(List<byte> data)
+        {
+            if (data == null)
+                return null;
+
+            var frameChcksum = data.Skip(data.Count - 3).Take(2).ToList();
+            var newChcksum = PutFCS(data);
+            if (frameChcksum[0] != newChcksum[0] || frameChcksum[1] != newChcksum[1])
+                return null;
+
+            var frameInst = new Layer2ProtocolFrameInstance();
+            frameInst.Data = data.Skip(3).Take(data.Count - 6).ToList();
+            var ctrlByte = data[1];
+            frameInst.Type = GetFrameType(ctrlByte);
+            frameInst.FrameNum = GetFrameNum(ctrlByte);
+
+            return frameInst;
+        }
+        
+        #endregion
     }
 }
