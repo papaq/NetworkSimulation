@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading;
 
 using NetworksCeW.Structures;
+using NetworksCeW.ProtocolLayers;
 
 namespace NetworksCeW.UnitWorkers
 {
@@ -18,49 +19,82 @@ namespace NetworksCeW.UnitWorkers
         /// time, till which it should be confirmed
         /// or until which it should not be sent
         /// </summary>
-        private class SendFrame
+        private class SendFrameStruct
         {
             public readonly List<byte> Frame;
 
-            public readonly DateTime TimeToCheck;
+            public DateTime SendTime;
 
-            public SendFrame(List<byte> frame, DateTime time)
+            /// <summary>
+            /// 
+            /// </summary>
+            /// <param name="frame">The frame to be sent</param>
+            /// <param name="time">The time, when the frame is to be sent</param>
+            public SendFrameStruct(List<byte> frame, DateTime time)
             {
                 Frame = frame;
-                TimeToCheck = time;
+                SendTime = time;
             }
         }
-        
 
-        public Queue<List<byte>> Out;
-        public Queue<List<byte>> In;
+        enum Turn
+        {
+            tryToStart = -1,
+            listen = 0,
+            sendInfo = 1,
+            sendConfirm = 2,
+            receiveConfirm = 3
+        }
 
-        private List<SendFrame> _sentFrames;
-        private List<SendFrame> _toSendFrames;
+        #region Queues
+        private Queue<List<byte>> toProcessOnLayer2;
+        public List<List<byte>> In;
 
+        private Queue<List<byte>> toProcessOnLayer3;
+
+        private List<SendFrameStruct> _sentFrames;
+        private List<SendFrameStruct> _toSendFrames;
+        #endregion
+
+
+        #region Existing instances
         public Bind Connection;
-        private bool _myTurn;
 
         private BufferWorker _endPointWorker;
 
+        private UnitTerminal _myTerminal;
+        #endregion
+
+
+        #region Transmition control
+        private Turn _myTurn = Turn.tryToStart;
+
         private const int DEFAULT_BIT_RATE = 37800;
         private readonly int myBitRate;
-        private const int Timeout = 500;
+
+        private const int TIMEOUT = 500;
+        private const byte WINDOW = 10;
+        private byte WindowLeft = 10;
 
         private readonly int _bufferSize;
         private int _bufferLeft;
+        
+        private byte nextFrameSend, nextFrameRec = 1;
 
-        private int nextFrameSend = 0;
-        private int nextFrameRec = 0;
-
-        private ProtocolLayers.Layer2Protocol _layer2p;
-        private Thread _bufferWorker;
         private int _channelWidth;
         private bool _chanAsync;
-        private UnitTerminal _myTerminal;
+
+        private DateTime _listenStarted;
+
+        // костыль
+        private bool _controlSent = false;
+        #endregion
+
+        private Layer2Protocol _layer2p;
+        private Thread _bufferWorker;
         private Random _rnd;
 
-        private object _blockerInQueue, _blockerOutQueue;
+        private object _lockInQueue, _lockOutQueue, _lockLayer2Queue, _lockLayer3Queue;
 
 
         public BufferWorker(int connectionNum, UnitTerminal terminal, int bufferSize)
@@ -73,18 +107,22 @@ namespace NetworksCeW.UnitWorkers
 
             myBitRate = DEFAULT_BIT_RATE / Connection.Weight;
 
-            _layer2p = new ProtocolLayers.Layer2Protocol();
+            _layer2p = new Layer2Protocol();
 
-            In = new Queue<List<byte>>();
-            Out = new Queue<List<byte>>();
+            In = new List<List<byte>>();
+            toProcessOnLayer2 = new Queue<List<byte>>();
+            toProcessOnLayer3 = new Queue<List<byte>>();
 
-            _sentFrames = new List<SendFrame>();
-            _toSendFrames = new List<SendFrame>();
+            _sentFrames = new List<SendFrameStruct>();
+            _toSendFrames = new List<SendFrameStruct>();
 
-            _blockerInQueue = new object();
-            _blockerOutQueue = new object();
+            _lockInQueue = new object();
+            _lockOutQueue = new object();
+            _lockLayer2Queue = new object();
+            _lockLayer3Queue = new object();
 
             _rnd = new Random();
+            _listenStarted = new DateTime();
         }
 
         public void InitEndPointWorker(BufferWorker worker)
@@ -94,7 +132,7 @@ namespace NetworksCeW.UnitWorkers
 
         public void WorkerStart()
         {
-            _bufferWorker = new Thread(Worker);
+            _bufferWorker = _chanAsync ? new Thread(WorkerDuplex) : new Thread(WorkerHDuplex);
             _bufferWorker.Start();
         }
 
@@ -108,70 +146,114 @@ namespace NetworksCeW.UnitWorkers
             return (byte)((_bufferSize - _bufferLeft) / _bufferSize * 100);
         }
 
-        private void Worker()
+        private void WorkerHDuplex()
         {
-            Thread.Sleep(_rnd.Next(0, 300));
-            MakeSelfFirst();
+
+            // Features:
+            // - start connection
+            // - send frames, if turn to sendInfo
+            // - send marker after definite time space
+            // - send confirm frames, if turn to sendConfirm
+            // - finish transmition after finite frames number
+
+
+
+            // Start connection
+            StartCommunication();
+            _listenStarted = DateTime.Now;
+
+            // Acquire start acknowledgement or incoming start ask
+            while (_myTurn == Turn.tryToStart)
+            {
+
+                // Send frame if its transmition time passed
+                SendAllWaitingFrames();
+
+                ReactToFrame(PullNextIncomingFrame());
+
+                // Resend start ask
+                if (_myTurn == Turn.tryToStart &&
+                    _rnd.Next(3) == 1 &&
+                    DateTime.Now.Subtract(_listenStarted).TotalMilliseconds > TIMEOUT * 3)
+                {
+                    _sentFrames.Clear();
+                    StartCommunication();
+                    _listenStarted = DateTime.Now;
+                }
+
+
+                ReactToFrame(PullNextIncomingFrame());
+            }
+
+            // Exchange frames
             while (true)
             {
-                var newFrame = _layer2p.Unpack(GetNewFrame());
 
-                if (newFrame == null)
-                {
-                    Thread.Sleep(Timeout / 10);
-                    continue;
-                }
-
-                if (newFrame.Control &&
-                    newFrame.Start &&
-                    newFrame.Ack)
-                {
-                    WriteLog("Buffer " + Connection.Index + ": Marker received!");
-                    continue;
-                }
-
-                if (newFrame.Start &&
-                    newFrame.Init)
-                {
-                    WriteLog("Buffer " + Connection.Index + ": Marker asked!");
-                    continue;
-                }
             }
         }
 
+        private void WorkerDuplex()
+        {
+
+        }
+
+        /// <summary>
+        /// Write log into
+        /// unit's terminal
+        /// </summary>
+        /// <param name="log"></param>
         private void WriteLog(string log)
         {
-            _myTerminal.WriteLog(DateTime.Now, log);
+            _myTerminal.WriteLog(DateTime.Now, 
+                "Buffer to " + Connection.GetSecondUnitIndex(_myTerminal.UnitInst.Index).ToString() + 
+                ": " + log);
         }
 
         /// <summary>
         /// Use this by another buffer
         /// </summary>
         /// <param name="frame"></param>
-        public void AddNewFrame(List<byte> frame)
+        public void PutFrameToThisBuffer(List<byte> frame)
         {
-            lock(_blockerInQueue)
+            lock(_lockInQueue)
             {
                 if (_bufferLeft >= frame.Count)
                 {
                     _bufferLeft -= frame.Count;
-                    In.Enqueue(frame);
-                    WriteLog("Buffer " + Connection.Index + ": frame received!");
+                    In.Add(frame);
+                    WriteLog("Frame received!");
                 }
                 else
                 {
-                    WriteLog("Buffer " + Connection.Index + ": lost frame!");
+                    WriteLog("Lost frame!");
                 }
             }
         }
 
-        private List<byte> GetNewFrame()
+        /// <summary>
+        /// Use this by current buffer
+        /// </summary>
+        /// <param name="frame"></param>
+        private void PutFrameToAnotherBuffer(List<byte> frame)
         {
-            lock (_blockerInQueue)
+            if (_endPointWorker != null)
+            {
+                _endPointWorker.PutFrameToThisBuffer(frame);
+            }
+        }
+
+        /// <summary>
+        /// Get the first frame from In list
+        /// </summary>
+        /// <returns></returns>
+        private List<byte> PullNextIncomingFrame()
+        {
+            lock (_lockInQueue)
             {
                 if (In.Count > 0)
                 {
-                    var newFrame = In.Dequeue();
+                    var newFrame = In[0];
+                    In.RemoveAt(0);
                     _bufferLeft += newFrame.Count;
                     return newFrame;
                 }
@@ -180,48 +262,292 @@ namespace NetworksCeW.UnitWorkers
             }
         }
 
-        private void MakeSelfFirst()
+        /// <summary>
+        /// Use by upper level:
+        /// Put new datagram in the queue for following 
+        /// trasmition to another buffer
+        /// </summary>
+        /// <param name="datagram"></param>
+        public void PushNewLayer3Datagram(List<byte> datagram)
         {
-            while (true)
+            lock (_lockLayer2Queue)
             {
-                _sentFrames.Add(new SendFrame(_layer2p.AskConnection(true), DateTime.Now));
-                Thread.Sleep(CountSendTime(_sentFrames.Count));
-                if (In.Count != 0)
-                {
-                    _sentFrames.RemoveAt(_sentFrames.Count - 1);
-                    return;
-                }
-
-                if (_endPointWorker != null)
-                {
-                    _endPointWorker.AddNewFrame(_layer2p.AskConnection(true));
-                }
-            }            
+                toProcessOnLayer2.Enqueue(datagram);
+            }
         }
 
-        private void MakeOtherFirst()
+        /// <summary>
+        /// Use by upper level:
+        /// Take from the queue another datagram, 
+        /// that was received by this buffer
+        /// </summary>
+        /// <returns></returns>
+        public List<byte> PullNewLayer3Datagram()
         {
-            var newFrame = _layer2p.Unpack(GetNewFrame());
+            lock (_lockLayer3Queue)
+            {
+                if (toProcessOnLayer3.Count < 1)
+                    return null;
+
+                return toProcessOnLayer3.Dequeue();
+            }
+        }
+        
+
+        /// <summary>
+        /// Send start initiation control frame soon
+        /// </summary>
+        private void StartCommunication()
+        {
+            _toSendFrames.Add(new SendFrameStruct(
+                _layer2p.PackControl(FrameType.start_init, 0),
+                DateTime.Now.AddMilliseconds(CountSendTime(Layer2Protocol.HEADER_LENGTH))
+                ));
+        }
+
+        /// <summary>
+        /// Moves all (window) frames to _toSendList, in order 
+        /// to send them again
+        /// 
+        /// Invoked when the window size gets null
+        /// </summary>
+        private void WindowFullResend()
+        {
+            _toSendFrames.InsertRange(0, _sentFrames);
+
+            UpdateWaitTime();
+
+            _sentFrames.Clear();
+        }
+        
+        /// <summary>
+        /// Take another datagram to process and send
+        /// </summary>
+        /// <returns></returns>
+        private List<byte> PullNextDatagramToProcess()
+        {
+            lock (_lockLayer2Queue)
+            {
+                if (toProcessOnLayer2.Count < 1)
+                    return null;
+
+                return toProcessOnLayer2.Dequeue();
+            }
+        }
+
+        /// <summary>
+        /// Put new datagram, receive from another buffer,
+        /// in queue for upper level
+        /// </summary>
+        /// <param name="datagram"></param>
+        private void PushDatagramToProcessOnLayer3(List<byte> datagram)
+        {
+            lock (_lockLayer3Queue)
+            {
+                toProcessOnLayer3.Enqueue(datagram);
+            }
+        }
+
+        
+        /// <summary>
+        /// Increase wait time for all frames in the list
+        /// </summary>
+        /// <param name="indexStart"></param>
+        /// <param name="plusMSecs"></param>
+        private void UpdateWaitTime()
+        {
+            int waitTime = 0;
+            foreach (var frameInst in _toSendFrames)
+            {
+                waitTime += CountSendTime(frameInst.Frame.Count);
+                frameInst.SendTime = DateTime.Now.AddMilliseconds(waitTime);
+            }
+        }
+
+        /// <summary>
+        /// Sends all frames, that were delayed in the list for time space,
+        /// during which they had to be inside the channel
+        /// </summary>
+        private void SendAllWaitingFrames()
+        {
+            while(_toSendFrames.Count > 0)
+            {
+                // If the frame had to be sent already, it will be sent right now
+                if (DateTime.Now.Subtract(_toSendFrames[0].SendTime).TotalMilliseconds > 0)
+                {
+                    PutFrameToAnotherBuffer(_toSendFrames[0].Frame);
+                    WriteLog("Frame sent");
+                    _sentFrames.Add(new SendFrameStruct(_toSendFrames[0].Frame, DateTime.Now));
+                    _toSendFrames.RemoveAt(0);
+                    continue;
+                }
+                break;
+            }
+        }        
+
+        /// <summary>
+        /// Reacts to a pulled frame
+        /// - deletes sent and confirmed frames
+        /// - manages connection
+        /// - confirms received frames
+        /// </summary>
+        /// <param name="frame"></param>
+        private void ReactToFrame(List<byte> frame)
+        {
+            var newFrame = _layer2p.UnpackFrame(frame);
 
             if (newFrame == null)
-            {
-                Thread.Sleep(Timeout / 10);
                 return;
-            }
-
-            if (newFrame.Control &&
-                newFrame.Start &&
-                newFrame.Ack)
+            
+            switch (newFrame.Type)
             {
-                WriteLog("Buffer " + Connection.Index + ": Marker received!");
-                continue;
-            }
+                case FrameType.start_init:
 
-            if (newFrame.Start &&
-                newFrame.Init)
-            {
-                WriteLog("Buffer " + Connection.Index + ": Marker asked!");
-                continue;
+                    // Case this buffer did not initiate connection,
+                    // there are no unconfirmed frames
+                    if (_sentFrames.Count == 0)
+                    {
+
+                        // Send confirmation (ack)
+                        // Without pushing it in wait queue
+                        Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
+                        PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.ack, 0));
+
+                        WriteLog("Sent marker");
+
+                        _myTurn = Turn.listen;
+                    }
+                    else
+                    {
+
+                        // Delete both sent frame and ignore received one
+                        // wait random time space
+                        WriteLog("Failed to configure connection");
+                        _sentFrames.Clear();
+                        Thread.Sleep(_rnd.Next(TIMEOUT));
+                    }
+
+                    break;
+                case FrameType.finish_init:
+
+                    // If another buffer had the marker
+                    // now this one receives it and
+                    // all not yet sent ack-frames are deleted
+                    if (_myTurn == Turn.listen)
+                    {
+                        _myTurn = Turn.sendInfo;
+                        _toSendFrames.RemoveAll(f => _layer2p.GetTypeFast(f.Frame) == FrameType.ack);
+                    }
+
+                    break;
+                case FrameType.ack:
+
+                    // The sent frame is confirmed:
+                    //* if the frame index != 0, info frames 
+                    //* with index till that one are confirmed
+                    //* otherwise, the control one
+                    if (newFrame.FrameNum != 0)
+                    {
+                        _sentFrames.RemoveAll(frameInst =>
+                            _layer2p.GetIndexFast(frameInst.Frame) <= newFrame.FrameNum);
+                    }
+                    else
+                    {
+
+                        // Control frame is confirmed
+                        switch (_layer2p.GetTypeFast(_sentFrames[0].Frame))
+                        {
+                            case FrameType.start_init:
+
+                                // Start initiation confirmed
+                                _myTurn = Turn.sendInfo;
+
+                                WriteLog("Receive marker");
+                                break;
+                            case FrameType.finish_init:
+
+                                // Finish of transmition confirmed
+                                _myTurn = Turn.listen;
+                                break;
+                            case FrameType.marker_pass:
+
+                                // Now other buffer owns marker to send smth.
+                                _myTurn = _myTurn == Turn.sendConfirm ? Turn.listen : Turn.receiveConfirm;
+                                break;
+                            case FrameType.null_counter:
+
+                                // Both buffers now nulled next coming frame index
+                                nextFrameSend = 1;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+                    break;
+                case FrameType.nack:
+
+                    // Smth gone wrong
+                    // ???
+                    break;
+                case FrameType.marker_pass:
+
+                    // Asked to send frames back (only in half-duplex)
+                    _myTurn = _myTurn == Turn.receiveConfirm ? Turn.sendInfo : Turn.sendConfirm;
+                    _toSendFrames.Insert(0, new SendFrameStruct(
+                            _layer2p.PackControl(FrameType.ack, 0),
+                            DateTime.Now
+                            ));
+                    UpdateWaitTime();
+                    break;
+                case FrameType.null_counter:
+
+                    // Next received frame should be nulled
+                    _toSendFrames.Add(new SendFrameStruct(
+                            _layer2p.PackControl(FrameType.ack, 0),
+                            DateTime.Now
+                            ));
+                    nextFrameRec = 1;
+                    break;
+                case FrameType.information:
+
+                    // If frame number is not equal to the one, which was waited
+                    // the previous frame is confirmed and all other received frames
+                    // are ignored
+                    if (nextFrameRec != newFrame.FrameNum)
+                    {
+                        _toSendFrames.Add(new SendFrameStruct(
+                            _layer2p.PackControl(FrameType.ack, (byte)(nextFrameRec - 1)),
+                            DateTime.Now.AddMilliseconds(CountSendTime(Layer2Protocol.HEADER_LENGTH))
+                            ));
+
+                        while (PullNextIncomingFrame() != null) { }
+                        break;
+                    }
+                                        
+                    // Push to the upper layer
+                    PushDatagramToProcessOnLayer3(newFrame.Data);
+
+                    WindowLeft--;
+
+                    // Send confirmation, if window is closing
+                    if (WindowLeft < WINDOW / 2)
+                    {
+                        _toSendFrames.Add(new SendFrameStruct(
+                            _layer2p.PackControl(FrameType.ack, nextFrameRec),
+                            DateTime.Now
+                            ));
+                        WindowLeft = WINDOW;
+                    }
+
+                    break;
+
+                case FrameType.info_and_null:
+
+                    // No use maybe
+                    // ????
+                    break;
+                default:
+                    break;
             }
         }
 

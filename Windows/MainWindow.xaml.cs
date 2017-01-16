@@ -685,7 +685,7 @@ namespace NetworksCeW.Windows
             var unit1 = _listOfUnits[_connectItem1];
             var unit2 = _listOfUnits[_connectItem2];
 
-            var dialog = new ConnectWindow(1, false, true,
+            var dialog = new ConnectWindow(1, false, false,
                 unit1.Disabled || unit2.Disabled,
                 unit1.Disabled || unit2.Disabled);
             dialog.ShowDialog();
@@ -1026,7 +1026,7 @@ namespace NetworksCeW.Windows
                 var unit1 = _listOfUnits[_leftClickUnit];
                 var unit2 = _listOfUnits[_enterUnit];
                 var isGrey = unit1.Disabled || unit2.Disabled;
-                CreateBinding(unit1, unit2, 1, false, true, isGrey);
+                CreateBinding(unit1, unit2, 1, false, false, isGrey);
 
                 UpdateTerminal(unit1);
                 UpdateTerminal(unit2);

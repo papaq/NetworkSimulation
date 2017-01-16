@@ -28,6 +28,7 @@ namespace NetworksCeW.ProtocolLayers
     class Layer2Protocol
     {
         private const byte FLAG = 0x7E;
+        public const byte HEADER_LENGTH = 5;
 
         public Layer2Protocol() { }
 
@@ -82,10 +83,10 @@ namespace NetworksCeW.ProtocolLayers
 
         #region Global need funcs
 
-        public List<byte> PackData(List<byte> data, FrameType type)
+        public List<byte> PackData(List<byte> data, FrameType type, byte frameNum)
         {
             var informationFrame = new List<byte>() { PutFlagByte() };
-            informationFrame.Add(PutControlByte(type, 0));
+            informationFrame.Add(PutControlByte(type, frameNum));
             informationFrame.AddRange(data);
             informationFrame.Add(0);
             informationFrame.Add(0);
@@ -98,53 +99,23 @@ namespace NetworksCeW.ProtocolLayers
             return informationFrame;
         }
 
-        public List<byte> AskConnection(bool start)
+        public List<byte> PackControl(FrameType type, byte frameNum)
         {
             var controlFrame = new List<byte>() { PutFlagByte() };
-            controlFrame.Add(PutControlByte(FrameType.start_init, 0));
+            controlFrame.Add(PutControlByte(type, frameNum));
             controlFrame.Add(0);
             controlFrame.Add(0);
             controlFrame.Add(PutFlagByte());
 
             var fcs = PutFCS(controlFrame);
-            controlFrame[controlFrame.Count - 3] = fcs[0];
-            controlFrame[controlFrame.Count - 2] = fcs[1];
-
-            return controlFrame;
-        }
-
-        public List<byte> ConfirmConnection(bool confirm)
-        {
-            var controlFrame = new List<byte>() { PutFlagByte() };
-            controlFrame.Add(PutControlByte(confirm ? FrameType.ack : FrameType.nack, 0));
-            controlFrame.Add(0);
-            controlFrame.Add(0);
-            controlFrame.Add(PutFlagByte());
-
-            var fcs = PutFCS(controlFrame);
-            controlFrame[controlFrame.Count - 3] = fcs[0];
-            controlFrame[controlFrame.Count - 2] = fcs[1];
-
-            return controlFrame;
-        }
-
-        public List<byte> PassMarker()
-        {
-            var controlFrame = new List<byte>() { PutFlagByte() };
-            controlFrame.Add(PutControlByte(FrameType.marker_pass, 0));
-            controlFrame.Add(0);
-            controlFrame.Add(0);
-            controlFrame.Add(PutFlagByte());
-
-            var fcs = PutFCS(controlFrame);
-            controlFrame[controlFrame.Count - 3] = fcs[0];
-            controlFrame[controlFrame.Count - 2] = fcs[1];
+            controlFrame[2] = fcs[0];
+            controlFrame[3] = fcs[1];
 
             return controlFrame;
         }
 
 
-        public Layer2ProtocolFrameInstance Unpack(List<byte> data)
+        public Layer2ProtocolFrameInstance UnpackFrame(List<byte> data)
         {
             if (data == null)
                 return null;
@@ -163,6 +134,16 @@ namespace NetworksCeW.ProtocolLayers
             return frameInst;
         }
         
+        public byte GetIndexFast(List<byte> frame)
+        {
+            return GetFrameNum(frame[1]);
+        }
+
+        public FrameType GetTypeFast(List<byte> frame)
+        {
+            return GetFrameType(frame[1]);
+        }
+
         #endregion
     }
 }
