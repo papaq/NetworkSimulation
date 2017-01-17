@@ -8,8 +8,8 @@
         Title="Terminal" Height="331.579" Width="300">
     <Grid>
         <Grid.RowDefinitions>
+            <RowDefinition Height="50"/>
             <RowDefinition/>
-            <RowDefinition Height="5*"/>
         </Grid.RowDefinitions>
         <Grid>
             <Grid.ColumnDefinitions>

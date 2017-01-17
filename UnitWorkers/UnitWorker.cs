@@ -94,6 +94,10 @@ namespace NetworksCeW.UnitWorkers
                 foreach (var buff in ListBufferWorkers)
                     _myTerminal.UpdateBufferState(buff.CountBufferBusy());
 
+
+
+
+
                 Thread.Sleep(1000);
             }
         }
