@@ -89,17 +89,31 @@ namespace NetworksCeW.UnitWorkers
             InitBufferWorkers();
             StartAllBufferWorkers();
 
-            while (true)
-            {
+            //while (true)
+            //{
                 foreach (var buff in ListBufferWorkers)
                     _myTerminal.UpdateBufferState(buff.CountBufferBusy());
 
 
+                var sendList = new List<byte>() { 1, 2, 3 };
+                foreach (var buffer in ListBufferWorkers)
+                {
+                    WriteLog("Sent: " + sendList.ToString());
+                    buffer.PushNewLayer3Datagram(sendList);
+                }
+
+                foreach (var buffer in ListBufferWorkers)
+                {
+                    var recList = buffer.PullNewLayer3Datagram();
+                    if (recList != null)
+                    {
+                        WriteLog("Received: " + recList.ToString());
+                    }
+                }
 
 
-
-                Thread.Sleep(1000);
-            }
+                //Thread.Sleep(1000);
+            //}
         }
 
         /// <summary>
@@ -132,7 +146,16 @@ namespace NetworksCeW.UnitWorkers
             // Put datagram into buffer out list
         }
 
-        
-        
+        /// <summary>
+        /// Write log into
+        /// unit's terminal
+        /// </summary>
+        /// <param name="log"></param>
+        private void WriteLog(string log)
+        {
+            _myTerminal.WriteLog(DateTime.Now,
+                "Unit: " + log);
+        }
+
     }
 }

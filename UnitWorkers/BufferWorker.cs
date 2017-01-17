@@ -184,10 +184,13 @@ namespace NetworksCeW.UnitWorkers
                 ReactToFrame(PullNextIncomingFrame());
             }
 
+            _toSendFrames.Clear();
+            _sentFrames.Clear();
+
             // Exchange frames
             while (true)
             {
-
+                nextFrameRec = 1;
                 // S C E N A R I O   1:
 
                 // It is time to receive frames
@@ -215,22 +218,40 @@ namespace NetworksCeW.UnitWorkers
                                 )));
                     }
 
+                    UpdateWaitTime();
+
                     // Send all control frames
                     while (_myTurn == Turn.sendConfirm)
                     {
+                        WriteLog("   1a");
+                        foreach (var item in _toSendFrames)
+                        {
+                            WriteLog(_layer2p.GetTypeFast(item.Frame).ToString());
+                        }
+
+
+
                         // Send marker back, if nothing to send left
                         if (In.Count == 0 && _toSendFrames.Count == 0)
                         {
 
                             // Wait until ack received, otherwise - resend marker
-                            while (_myTurn != Turn.receiveConfirm)
+                            while (_myTurn != Turn.listen)
                             {
                                 for (int i = 0; i < 10; i++)
                                 {
                                     ReactToFrame(PullNextIncomingFrame());
+
+                                    if (_myTurn == Turn.listen)
+                                        break;
+
                                     Thread.Sleep(TIMEOUT / 10);
                                     SendAllWaitingFrames();
                                 }
+
+                                if (_myTurn == Turn.listen)
+                                    break;
+
                                 ReactToFrame(PullNextIncomingFrame());
 
                                 // Resend if there was still no response
@@ -248,7 +269,11 @@ namespace NetworksCeW.UnitWorkers
                         SendAllWaitingFrames();
                         Thread.Sleep(0);
                     }
+
+                    _sentFrames.Clear();
                 }
+
+                nextFrameSend = 1;
 
                 // S C E N A R I O   2
 
@@ -279,19 +304,25 @@ namespace NetworksCeW.UnitWorkers
                             Thread.Sleep(50);
                             continue;
                         }
+                        WriteLog("   2a");
+
+
+
 
                         // Count sent frames in order to finish connection
                         // after timeout, if no frame was sent
                         sentFramesCounter++;
                         
-                        sendingLeftTime -= datagramToSend.Count + Layer2Protocol.HEADER_LENGTH;
-
-                        _toSendFrames.Add(new SendFrameStruct(
-                            _layer2p.PackData(
+                        var frameToSend = _layer2p.PackData(
                                 datagramToSend,
                                 FrameType.information,
-                                nextFrameSend++),
-                            DateTime.Now));
+                                nextFrameSend++);
+
+                        sendingLeftTime -= frameToSend.Count;
+
+                        _toSendFrames.Add(new SendFrameStruct(
+                            frameToSend,
+                            DateTime.Now.AddMilliseconds(CountSendTime(frameToSend.Count))));
 
                         SendAllWaitingFrames();
                     }
@@ -310,6 +341,14 @@ namespace NetworksCeW.UnitWorkers
                         // Send all processed frames
                         while (_toSendFrames.Count != 0)
                         {
+                            WriteLog("   2b");
+                            foreach (var item in _toSendFrames)
+                            {
+                                WriteLog(_layer2p.GetTypeFast(item.Frame).ToString());
+                            }
+
+
+
                             SendAllWaitingFrames();
                             Thread.Sleep(50);
                         }
@@ -320,9 +359,16 @@ namespace NetworksCeW.UnitWorkers
                             for (int i = 0; i < 10; i++)
                             {
                                 ReactToFrame(PullNextIncomingFrame());
+
+                                if (_myTurn == Turn.receiveConfirm)
+                                    break;
+
                                 Thread.Sleep(TIMEOUT / 10);
                                 SendAllWaitingFrames();
                             }
+
+                            if (_myTurn == Turn.receiveConfirm)
+                                break;
 
                             ReactToFrame(PullNextIncomingFrame());
 
@@ -333,12 +379,25 @@ namespace NetworksCeW.UnitWorkers
                                 _sentFrames.RemoveAt(_sentFrames.Count - 1);
                             }
                         }
-                        
+
+                        WriteLog(_sentFrames.Count.ToString());
+
                         // Receive all confirmations, until marker is received
                         while (_myTurn == Turn.receiveConfirm)
                         {
+                            WriteLog("   2c");
+
+
+
+
                             Thread.Sleep(20);
                             ReactToFrame(PullNextIncomingFrame());
+
+                            WriteLog(_sentFrames.Count.ToString());
+                            foreach (var item in _sentFrames)
+                            {
+                                WriteLog(_layer2p.GetTypeFast(item.Frame).ToString());
+                            }
                         }
 
                         // In case all frames are not successfully received by another buffer
@@ -367,12 +426,28 @@ namespace NetworksCeW.UnitWorkers
                     // Wait until ack received, otherwise - resend frame
                     while (_myTurn != Turn.listen)
                     {
+
+                        WriteLog("   2d");
+
+
+
+
+
+
                         for (int i = 0; i < 10; i++)
                         {
                             ReactToFrame(PullNextIncomingFrame());
+
+                            if (_myTurn == Turn.listen)
+                                break;
+
                             Thread.Sleep(TIMEOUT / 10);
                             SendAllWaitingFrames();
                         }
+
+                        if (_myTurn == Turn.listen)
+                            break;
+
                         ReactToFrame(PullNextIncomingFrame());
 
                         // Resend if there was still no response
@@ -600,7 +675,10 @@ namespace NetworksCeW.UnitWorkers
 
 
 
-
+                    if (_myTurn != Turn.tryToStart)
+                    {
+                        break;
+                    }
 
                     // Case this buffer did not initiate connection,
                     // there are no unconfirmed frames
@@ -714,6 +792,7 @@ namespace NetworksCeW.UnitWorkers
 
 
                                 // Now other buffer owns marker to send something
+                                _sentFrames.RemoveAt(_sentFrames.Count - 1);
                                 _myTurn = _myTurn == Turn.sendConfirm ? Turn.listen : Turn.receiveConfirm;
                                 break;
                             case FrameType.null_counter:
@@ -741,6 +820,8 @@ namespace NetworksCeW.UnitWorkers
                     // Asked to send frames back (only in half-duplex)
                     _myTurn = _myTurn == Turn.receiveConfirm ? Turn.sendInfo : Turn.sendConfirm;
 
+                    //_toSendFrames.Clear();
+
                     Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
                     PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.ack, 0));
 
@@ -750,11 +831,9 @@ namespace NetworksCeW.UnitWorkers
                 case FrameType.null_counter:
 
                     // Next received frame should be nulled
-                    _toSendFrames.Add(new SendFrameStruct(
-                            _layer2p.PackControl(FrameType.ack, 0),
-                            DateTime.Now
-                            ));
+                    PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.ack, 0));
                     nextFrameRec = 1;
+
                     break;
                 case FrameType.information:
                     WriteLog("rInforma");
