@@ -14,7 +14,21 @@ namespace NetworksCeW.ProtocolLayers
         public int ToUnit { get; set; }
         public int BandWidth { get; set; }
     }
-    
+
+    class Layer3ProtocolDatagramInstance
+    {
+        public List<byte> Data { get; set; }
+        public int Identification { get; set; }
+        public byte Flags { get; set; }
+        public int TotalLength { get; set; }
+        public int FragmentOffset { get; set; }
+        public byte Protocol { get; set; }
+        public byte TTL { get; set; }
+        public byte Saddr { get; set; }
+        public byte Daddr { get; set; }
+    }
+
+
     class Layer3Protocol
     {
         /// <summary>
@@ -97,12 +111,22 @@ namespace NetworksCeW.ProtocolLayers
             };
         }
 
+        private int GetTotalLength(List<byte> bytes)
+        {
+            return MakeIntFromBytes(bytes.Skip(2).Take(2).ToList());
+        }
+
         private List<byte> PutIdentification(int identification)
         {
             return new List<byte>() {
                 GetFirstByte(identification),
                 GetSecondByte(identification)
             };
+        }
+
+        private int GetIdentification(List<byte> bytes)
+        {
+            return MakeIntFromBytes(bytes.Skip(4).Take(2).ToList());
         }
 
         private List<byte> PutFlagsnOffset(byte flags, int offset)
@@ -113,14 +137,34 @@ namespace NetworksCeW.ProtocolLayers
             };
         }
 
+        private byte GetFlags(List<byte> bytes)
+        {
+            return (byte)ShiftRight(bytes[6], 5);
+        }
+
+        private int GetOffset(List<byte> bytes)
+        {
+            return MakeIntFromBytes(bytes.Skip(6).Take(2).ToList()) & 0x1FFF;
+        }
+
         private byte PutTTL(byte ttl)
         {
             return ttl;
         }
 
+        private byte GetTTL(List<byte> bytes)
+        {
+            return bytes[8];
+        }
+
         private byte PutProtocol(byte protocol)
         {
             return protocol;
+        }
+
+        private byte GetProtocol(List<byte> bytes)
+        {
+            return bytes[9];
         }
 
         private List<byte> PutCheckSum(int chksm)
@@ -129,6 +173,11 @@ namespace NetworksCeW.ProtocolLayers
                 GetFirstByte(chksm),
                 GetSecondByte(chksm)
             };
+        }
+
+        private int GetCheckSum(List<byte> bytes)
+        {
+            return MakeIntFromBytes(bytes.Skip(10).Take(2).ToList());
         }
 
         private int CountCheckSum(List<byte> header)
@@ -153,6 +202,11 @@ namespace NetworksCeW.ProtocolLayers
             };
         }
 
+        private byte GetSourceAddress(List<byte> bytes)
+        {
+            return bytes[12];
+        }
+
         private List<byte> PutDestinationAddress(int destAddr)
         {
             return new List<byte>() {
@@ -163,6 +217,13 @@ namespace NetworksCeW.ProtocolLayers
             };
         }
 
+        private byte GetDestinationAddress(List<byte> bytes)
+        {
+            return bytes[16];
+        }
+
+
+        #region Bytes and bits manipulation
         private byte GetFirstByte(int num)
         {
             return (byte)(num & 0xFF);
@@ -183,18 +244,28 @@ namespace NetworksCeW.ProtocolLayers
             return (byte)ShiftRight(num, 24);
         }
 
-        private int MakeIntFrom4Bytes(List<byte> bytes)
+        private int MakeIntFromBytes(List<byte> bytes)
         {
-            if (bytes == null || bytes.Count < 4)
+            if (bytes == null || bytes.Count > 4 || bytes.Count == 0)
                 return -1;
-            byte b1 = bytes[0], 
-                b2 = bytes[1], 
-                b3 = bytes[2], 
-                b4 = bytes[3];
-            return b1 +
-                ShiftLeft(b2, 8) + 
-                ShiftLeft(b3, 16) +
-                ShiftLeft(b4, 24);
+            byte b0 = 0, b1 = 0, b2 = 0, b3 = 0;
+
+            if (bytes.Count == 4)
+                b3 = bytes[3];
+
+            if (bytes.Count > 2)
+                b2 = bytes[2];
+
+            if (bytes.Count > 1)
+                b1 = bytes[1];
+
+            if (bytes.Count > 0)
+                b0 = bytes[0];
+            
+            return b0 +
+                ShiftLeft(b1, 8) + 
+                ShiftLeft(b2, 16) +
+                ShiftLeft(b3, 24);
         }
 
         private int ShiftLeft(int what, int times)
@@ -206,7 +277,7 @@ namespace NetworksCeW.ProtocolLayers
         {
             return (what >> times);
         }
-
+        #endregion
 
         #region Global need funcs
 
@@ -251,6 +322,31 @@ namespace NetworksCeW.ProtocolLayers
             datagram[11] = checkSum[1];
 
             return datagram;
+        }
+
+        public Layer3ProtocolDatagramInstance UnpackFrame(List<byte> datagram)
+        {
+            if (datagram == null)
+                return null;
+
+            var datagramCheckSum = GetCheckSum(datagram);
+            if (CountCheckSum(datagram.Take(20).ToList()) != datagramCheckSum)
+                return null;
+
+            var datagramInst = new Layer3ProtocolDatagramInstance()
+            {
+                Data = datagram.Skip(20).Take(datagram.Count).ToList(),
+                Identification = GetIdentification(datagram),
+                Flags = GetFlags(datagram),
+                TotalLength = GetTotalLength(datagram),
+                FragmentOffset = GetOffset(datagram),
+                Protocol = GetProtocol(datagram),
+                TTL = GetTTL(datagram),
+                Saddr = GetSourceAddress(datagram),
+                Daddr = GetDestinationAddress(datagram),
+            };
+
+            return datagramInst;
         }
 
         #endregion
@@ -388,8 +484,8 @@ namespace NetworksCeW.ProtocolLayers
 
             for (int i = 0; i < count; i++)
             {
-                int toUnit = MakeIntFrom4Bytes(list.Take(4).ToList());
-                int bandWidth = MakeIntFrom4Bytes(list.Skip(4).Take(4).ToList());
+                int toUnit = MakeIntFromBytes(list.Take(4).ToList());
+                int bandWidth = MakeIntFromBytes(list.Skip(4).Take(4).ToList());
                 connections.Add(new ToUnitConnection() { ToUnit = toUnit, BandWidth = bandWidth });
 
                 list.RemoveRange(0, 8);

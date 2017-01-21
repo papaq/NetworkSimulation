@@ -126,7 +126,7 @@ namespace NetworksCeW.ProtocolLayers
                 return null;
 
             var frameInst = new Layer2ProtocolFrameInstance();
-            frameInst.Data = data.Skip(3).Take(data.Count - 6).ToList();
+            frameInst.Data = data.Skip(2).Take(data.Count - 5).ToList();
             var ctrlByte = data[1];
             frameInst.Type = GetFrameType(ctrlByte);
             frameInst.FrameNum = GetFrameNum(ctrlByte);

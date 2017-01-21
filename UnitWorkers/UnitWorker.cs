@@ -25,7 +25,7 @@ namespace NetworksCeW.UnitWorkers
         private byte _congestion = 1;
 
         // Protocols' instances
-        private Layer3Protocol _layer3Protocol;
+        private Layer3Protocol _layer3p;
 
         public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
         {
@@ -33,7 +33,7 @@ namespace NetworksCeW.UnitWorkers
             _listOfTerminals = listTerminals;
             _unit = unit;
             ListBufferWorkers = new List<BufferWorker>();
-            _layer3Protocol = new Layer3Protocol(unit.Index);
+            _layer3p = new Layer3Protocol(unit.Index);
         }
 
         public void WorkerStart()
@@ -91,25 +91,36 @@ namespace NetworksCeW.UnitWorkers
 
             //while (true)
             //{
-                foreach (var buff in ListBufferWorkers)
-                    _myTerminal.UpdateBufferState(buff.CountBufferBusy());
+            foreach (var buff in ListBufferWorkers)
+                _myTerminal.UpdateBufferState(buff.CountBufferBusy());
 
 
-                var sendList = new List<byte>() { 1, 2, 3 };
-                foreach (var buffer in ListBufferWorkers)
-                {
-                    WriteLog("Sent: " + sendList.ToString());
-                    buffer.PushNewLayer3Datagram(sendList);
-                }
+            var sendList = new List<byte>() { 1, 2, 3 };
+            foreach (var buffer in ListBufferWorkers)
+            {
+                var dtgr = "";
+                sendList.ForEach((byte a) => { dtgr += a.ToString(); });
+                WriteLog("Sent: " + dtgr);
+                buffer.PushNewLayer3Datagram(sendList);
+            }
 
+
+            while (true)
+            { 
                 foreach (var buffer in ListBufferWorkers)
                 {
                     var recList = buffer.PullNewLayer3Datagram();
                     if (recList != null)
                     {
-                        WriteLog("Received: " + recList.ToString());
+                        var dtgr = "";
+                        recList.ForEach((byte a) => { dtgr += a.ToString(); });
+                        WriteLog("Received: " + dtgr);
                     }
                 }
+
+                Thread.Sleep(100);
+
+        }
 
 
                 //Thread.Sleep(1000);
@@ -132,8 +143,8 @@ namespace NetworksCeW.UnitWorkers
                 });
             }
 
-            var datagram = _layer3Protocol.PackData(
-                _layer3Protocol.MakeStatusData(myConnections),
+            var datagram = _layer3p.PackData(
+                _layer3p.MakeStatusData(myConnections),
                 _congestion,
                 0,
                 2,
@@ -144,6 +155,17 @@ namespace NetworksCeW.UnitWorkers
                 Layer3Protocol.BRDCST );
 
             // Put datagram into buffer out list
+        }
+
+        private void ReactToFrame(List<byte> datagram)
+        {
+            var newFrame = _layer3p.UnpackFrame(datagram);
+
+            if (newFrame == null) return;
+
+
+
+
         }
 
         /// <summary>
