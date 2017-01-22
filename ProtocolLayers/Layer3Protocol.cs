@@ -6,16 +6,20 @@ using System.Text;
 namespace NetworksCeW.ProtocolLayers
 {
     /// <summary>
-    /// Structure describes connection other end 
-    /// unit index and connection bandwidth
+    /// Structure describes other end unit index 
+    /// and connection bandwidth
     /// </summary>
-    class ToUnitConnection
+    internal class ToUnitConnection
     {
         public int ToUnit { get; set; }
         public int BandWidth { get; set; }
     }
 
-    class Layer3ProtocolDatagramInstance
+    /// <summary>
+    /// Structure used to describe all
+    /// datagram header fields
+    /// </summary>
+    internal class Layer3ProtocolDatagramInstance
     {
         public List<byte> Data { get; set; }
         public int Identification { get; set; }
@@ -29,13 +33,13 @@ namespace NetworksCeW.ProtocolLayers
     }
 
 
-    class Layer3Protocol
+    internal class Layer3Protocol
     {
         /// <summary>
         /// Structure describes route by destination unit 
         /// and next after current
         /// </summary>
-        class DestinationNext
+        private class DestinationNext
         {
             public int DestUnitIndex { get; set; }
 
@@ -58,54 +62,74 @@ namespace NetworksCeW.ProtocolLayers
         /// <summary>
         /// Structure describes unit's own connections
         /// </summary>
-        class UnitConnectionsUnits
+        private class UnitConnectionsUnits
         {
             public readonly int UnitIndex;
-            public DateTime updateTime;
-            public List<ToUnitConnection> connections;
+            public DateTime UpdateTime;
+            public List<ToUnitConnection> Connections;
 
             public UnitConnectionsUnits(int unit)
             {
                 UnitIndex = unit;
-                connections = new List<ToUnitConnection>();
+                Connections = new List<ToUnitConnection>();
             }
         }
 
-        public const byte VERSION = 0x04;
-        public const byte DSCP = 0x0;
-        public const byte TCP = 0x06;
-        public const byte UDP = 0x11;
-        public const byte RTP = 0x55;
-        public const byte BRDCST = 0xFF;
+        public const byte Version = 0x04;
+        public const byte Dscp = 0x0;
+        public const byte Tcp = 0x06;
+        public const byte Udp = 0x11;
+        public const byte Rtp = 0x55;
+        public const byte Brdcst = 0xFF;
 
-        public const int TIMEOUT = 60000;
+        public const int Timeout = 60000;
 
-        private readonly int myUnitIndex;
+        private readonly int _myUnitIndex;
 
-        private List<DestinationNext> routes;
+        private List<DestinationNext> _routes;
         private List<UnitConnectionsUnits> networkTopology;
+
+        private int _newDatagramId = -1;
         //public List<byte> Datagram;
 
         public Layer3Protocol(int unit)
         {
-            myUnitIndex = unit;
+            _myUnitIndex = unit;
             networkTopology = new List<UnitConnectionsUnits>();
-            routes = new List<DestinationNext>();
+            _routes = new List<DestinationNext>();
+        }
+        
+        public int GetNextId()
+        {
+            if (_newDatagramId == int.MaxValue)
+            {
+                _newDatagramId = -1;
+            }
+
+            return ++_newDatagramId;
         }
 
+        public int GetLastUsedId()
+        {
+            return _newDatagramId;
+        }
+
+
+        #region Set and get header fields
         private byte PutHDL(byte len)
         {
-            return (byte)(VERSION + ShiftLeft(len, 4));
+            return (byte) (Version + ShiftLeft(len, 4));
         }
 
-        private byte PutDSCPandECN(byte DSCP, byte ECN)
+        private byte PutDSCPandECN(byte dscp, byte ecn)
         {
-            return (byte)(ShiftLeft(ECN, 6) + DSCP);
+            return (byte) (ShiftLeft(ecn, 6) + dscp);
         }
 
         private List<byte> PutTotalLength(int totLen)
         {
-            return new List<byte>() {
+            return new List<byte>()
+            {
                 GetFirstByte(totLen),
                 GetSecondByte(totLen)
             };
@@ -118,7 +142,8 @@ namespace NetworksCeW.ProtocolLayers
 
         private List<byte> PutIdentification(int identification)
         {
-            return new List<byte>() {
+            return new List<byte>()
+            {
                 GetFirstByte(identification),
                 GetSecondByte(identification)
             };
@@ -131,15 +156,16 @@ namespace NetworksCeW.ProtocolLayers
 
         private List<byte> PutFlagsnOffset(byte flags, int offset)
         {
-            return new List<byte>() {
-                (byte)(flags + ShiftLeft(GetFirstByte(offset), 3)),
+            return new List<byte>()
+            {
+                (byte) (flags + ShiftLeft(GetFirstByte(offset), 3)),
                 GetSecondByte(offset)
             };
         }
 
         private byte GetFlags(List<byte> bytes)
         {
-            return (byte)ShiftRight(bytes[6], 5);
+            return (byte) ShiftRight(bytes[6], 5);
         }
 
         private int GetOffset(List<byte> bytes)
@@ -169,7 +195,8 @@ namespace NetworksCeW.ProtocolLayers
 
         private List<byte> PutCheckSum(int chksm)
         {
-            return new List<byte>() {
+            return new List<byte>()
+            {
                 GetFirstByte(chksm),
                 GetSecondByte(chksm)
             };
@@ -183,18 +210,17 @@ namespace NetworksCeW.ProtocolLayers
         private int CountCheckSum(List<byte> header)
         {
             header[10] = header[11] = 0;
-            int checkSum = 0;
-            for (int i = 0; i < header.Count; i++)
-                checkSum += header[i];
+            var checkSum = header.Aggregate(0, (current, b) => current + b);
 
             checkSum = ShiftLeft(GetFourthByte(checkSum), 8) +
-                GetThirdByte(checkSum) + (checkSum & 0xFFF0000);
+                       GetThirdByte(checkSum) + (checkSum & 0xFFF0000);
             return 0xFFFF - checkSum;
         }
 
         private List<byte> PutSourceAddress(int myAddr)
         {
-            return new List<byte>() {
+            return new List<byte>()
+            {
                 GetFirstByte(myAddr),
                 0,
                 0,
@@ -209,7 +235,8 @@ namespace NetworksCeW.ProtocolLayers
 
         private List<byte> PutDestinationAddress(int destAddr)
         {
-            return new List<byte>() {
+            return new List<byte>()
+            {
                 GetFirstByte(destAddr),
                 0,
                 0,
@@ -221,27 +248,29 @@ namespace NetworksCeW.ProtocolLayers
         {
             return bytes[16];
         }
+        #endregion
 
 
         #region Bytes and bits manipulation
+
         private byte GetFirstByte(int num)
         {
-            return (byte)(num & 0xFF);
+            return (byte) (num & 0xFF);
         }
 
         private byte GetSecondByte(int num)
         {
-            return (byte)ShiftRight(num & 0xFF00, 8);
+            return (byte) ShiftRight(num & 0xFF00, 8);
         }
 
         private byte GetThirdByte(int num)
         {
-            return (byte)ShiftRight(num & 0xFF0000, 16);
+            return (byte) ShiftRight(num & 0xFF0000, 16);
         }
 
         private byte GetFourthByte(int num)
         {
-            return (byte)ShiftRight(num, 24);
+            return (byte) ShiftRight(num, 24);
         }
 
         private int MakeIntFromBytes(List<byte> bytes)
@@ -261,11 +290,11 @@ namespace NetworksCeW.ProtocolLayers
 
             if (bytes.Count > 0)
                 b0 = bytes[0];
-            
+
             return b0 +
-                ShiftLeft(b1, 8) + 
-                ShiftLeft(b2, 16) +
-                ShiftLeft(b3, 24);
+                   ShiftLeft(b1, 8) +
+                   ShiftLeft(b2, 16) +
+                   ShiftLeft(b3, 24);
         }
 
         private int ShiftLeft(int what, int times)
@@ -277,16 +306,15 @@ namespace NetworksCeW.ProtocolLayers
         {
             return (what >> times);
         }
+
         #endregion
+
 
         #region Global need funcs
 
         /// <summary>
         /// Creates header for the datagram
         /// </summary>
-        /// <param name="data"></param>
-        /// <param name="destination"></param>
-        /// <returns></returns>
         public List<byte> PackData(
             List<byte> data,
             int congestion,
@@ -296,13 +324,13 @@ namespace NetworksCeW.ProtocolLayers
             byte ttl,
             byte protocol,
             int sourceAddr,
-            int destAddr )
+            int destAddr)
         {
             var datagram = new List<byte>();
-            byte headerLen = 20;
+            const byte headerLen = 20;
 
             datagram.Add(PutHDL(headerLen));
-            datagram.Add(PutDSCPandECN(DSCP, (byte)congestion));
+            datagram.Add(PutDSCPandECN(Dscp, (byte) congestion));
             datagram.AddRange(PutTotalLength(data.Count + headerLen));
 
             datagram.AddRange(PutIdentification(id));
@@ -365,7 +393,7 @@ namespace NetworksCeW.ProtocolLayers
             int iter = 0, count = networkTopology.Count;
             while (iter != networkTopology.Count)
             {
-                if (TIMEOUT > compareNow - networkTopology[iter].updateTime.Millisecond)
+                if (Timeout > compareNow - networkTopology[iter].UpdateTime.Millisecond)
                 {
                     iter++;
                     continue;
@@ -374,7 +402,7 @@ namespace NetworksCeW.ProtocolLayers
                 // Delete unit from all records in list
                 int unitIndex = networkTopology[iter].UnitIndex;
                 foreach (var unitInfo in networkTopology)
-                    unitInfo.connections.RemoveAll(conn => conn.ToUnit == unitIndex);
+                    unitInfo.Connections.RemoveAll(conn => conn.ToUnit == unitIndex);
 
                 networkTopology.RemoveAt(iter);
             }
@@ -394,37 +422,36 @@ namespace NetworksCeW.ProtocolLayers
         {
             var currentUnitInfo = networkTopology.Find(
                 unitInfo => unitInfo.UnitIndex == unit
-                );
+            );
 
             // Record with this unit exists
             if (currentUnitInfo != null)
             {
-                currentUnitInfo.connections = new List<ToUnitConnection>();
+                currentUnitInfo.Connections = new List<ToUnitConnection>();
                 foreach (var conn in connections)
                 {
                     // If there is a unit, to which the connection directed
                     var unitToInfo = networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == conn.ToUnit
-                        );
-                    if (unitToInfo != null)
-                    {
-                        currentUnitInfo.connections.Add(conn);
+                    );
+                    if (unitToInfo == null) continue;
 
-                        // If the other unit does not have record about the connection
-                        if (unitToInfo.connections.Find(c => c.ToUnit == unit) == null)
+                    currentUnitInfo.Connections.Add(conn);
+
+                    // If the other unit does not have record about the connection
+                    if (unitToInfo.Connections.Find(c => c.ToUnit == unit) == null)
+                    {
+                        unitToInfo.Connections.Add(new ToUnitConnection()
                         {
-                            unitToInfo.connections.Add(new ToUnitConnection()
-                            {
-                                ToUnit = unit,
-                                BandWidth = conn.BandWidth
-                            });
-                        }
+                            ToUnit = unit,
+                            BandWidth = conn.BandWidth
+                        });
                     }
 
                     // Else ignore this connection
                 }
 
-                currentUnitInfo.updateTime = DateTime.Now;
+                currentUnitInfo.UpdateTime = DateTime.Now;
             }
 
             // There is no record yet
@@ -433,11 +460,11 @@ namespace NetworksCeW.ProtocolLayers
                 var newUnitInfo = new UnitConnectionsUnits(unit);
 
                 // Check all connections for toUnit existance
-                for (int i = 0; i < connections.Count; i++)
+                for (var i = 0; i < connections.Count; i++)
                 {
                     var currentToUnitInfo = networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == connections[i].ToUnit
-                        );
+                    );
 
                     // Ignore connection, when there is no such toUnit record
                     if (currentToUnitInfo == null)
@@ -447,13 +474,13 @@ namespace NetworksCeW.ProtocolLayers
                     }
 
                     // Check, whether there is an appropriate connection record
-                    var toMyUnitConn = currentToUnitInfo.connections.Find(
+                    var toMyUnitConn = currentToUnitInfo.Connections.Find(
                         c => c.ToUnit == unit
-                        );
+                    );
                     if (toMyUnitConn == null)
                     {
                         // Add new connection
-                        currentToUnitInfo.connections.Add(new ToUnitConnection()
+                        currentToUnitInfo.Connections.Add(new ToUnitConnection()
                         {
                             ToUnit = unit,
                             BandWidth = connections[i].BandWidth
@@ -462,10 +489,10 @@ namespace NetworksCeW.ProtocolLayers
                 }
 
                 // Create list of connections
-                newUnitInfo.connections = connections;
+                newUnitInfo.Connections = connections;
 
                 // Update time of the record
-                newUnitInfo.updateTime = DateTime.Now;
+                newUnitInfo.UpdateTime = DateTime.Now;
 
                 // Add new record to units' list
                 networkTopology.Add(newUnitInfo);
@@ -479,14 +506,14 @@ namespace NetworksCeW.ProtocolLayers
         /// <returns></returns>
         public List<ToUnitConnection> GetConnectionsFromBytes(List<byte> list)
         {
-            int count = list.Count / 8;
-            List<ToUnitConnection> connections = new List<ToUnitConnection>();
+            var count = list.Count / 8;
+            var connections = new List<ToUnitConnection>();
 
-            for (int i = 0; i < count; i++)
+            for (var i = 0; i < count; i++)
             {
-                int toUnit = MakeIntFromBytes(list.Take(4).ToList());
-                int bandWidth = MakeIntFromBytes(list.Skip(4).Take(4).ToList());
-                connections.Add(new ToUnitConnection() { ToUnit = toUnit, BandWidth = bandWidth });
+                var toUnit = MakeIntFromBytes(list.Take(4).ToList());
+                var bandWidth = MakeIntFromBytes(list.Skip(4).Take(4).ToList());
+                connections.Add(new ToUnitConnection() {ToUnit = toUnit, BandWidth = bandWidth});
 
                 list.RemoveRange(0, 8);
             }
@@ -501,17 +528,19 @@ namespace NetworksCeW.ProtocolLayers
         /// <returns></returns>
         private List<byte> GetBytesFromConnection(ToUnitConnection connection)
         {
-            List<byte> bytes = new List<byte>();
+            var bytes = new List<byte>
+            {
+                GetFirstByte(connection.ToUnit),
+                GetSecondByte(connection.ToUnit),
+                GetThirdByte(connection.ToUnit),
+                GetFourthByte(connection.ToUnit),
+                GetFirstByte(connection.BandWidth),
+                GetSecondByte(connection.BandWidth),
+                GetThirdByte(connection.BandWidth),
+                GetFourthByte(connection.BandWidth)
+            };
 
-            bytes.Add(GetFirstByte(connection.ToUnit));
-            bytes.Add(GetSecondByte(connection.ToUnit));
-            bytes.Add(GetThirdByte(connection.ToUnit));
-            bytes.Add(GetFourthByte(connection.ToUnit));
 
-            bytes.Add(GetFirstByte(connection.BandWidth));
-            bytes.Add(GetSecondByte(connection.BandWidth));
-            bytes.Add(GetThirdByte(connection.BandWidth));
-            bytes.Add(GetFourthByte(connection.BandWidth));
 
             return bytes;
         }
@@ -523,7 +552,7 @@ namespace NetworksCeW.ProtocolLayers
         /// <returns></returns>
         public List<byte> MakeStatusData(List<ToUnitConnection> connections)
         {
-            List<byte> connectionsInBytes = new List<byte>();
+            var connectionsInBytes = new List<byte>();
 
             foreach (var conn in connections)
                 connectionsInBytes.AddRange(GetBytesFromConnection(conn));
@@ -533,7 +562,6 @@ namespace NetworksCeW.ProtocolLayers
 
         #endregion
 
-
         #region Routing
 
         /// <summary>
@@ -542,27 +570,26 @@ namespace NetworksCeW.ProtocolLayers
         private void RebuildRoutes()
         {
             // Null route list
-            routes = new List<DestinationNext>();
+            _routes = new List<DestinationNext>();
 
             // Fill route list with possible destinations
-            for (int i = 0; i < networkTopology.Count; i++)
+            foreach (var unitsInfo in networkTopology)
             {
-                var destination = networkTopology[i].UnitIndex;
-                if (destination != myUnitIndex)
+                var destination = unitsInfo.UnitIndex;
+                if (destination != _myUnitIndex)
                 {
-                    routes.Add(new DestinationNext() { DestUnitIndex = destination });
+                    _routes.Add(new DestinationNext() {DestUnitIndex = destination});
                 }
             }
 
             // Find best routes to each destination
-            var passedUnits = new List<int>() { myUnitIndex };
+            var passedUnits = new List<int>() {_myUnitIndex};
 
-            var myConnections = networkTopology[myUnitIndex].connections;
-            for (int conn = 0; conn < myConnections.Count; conn++)
+            var myConnections = networkTopology[_myUnitIndex].Connections;
+            foreach (var conn in myConnections)
             {
-                GoThroughAllRoutes(myConnections[conn].ToUnit, passedUnits, 1, myConnections[conn].BandWidth);
+                GoThroughAllRoutes(conn.ToUnit, passedUnits, 1, conn.BandWidth);
             }
-            
         }
 
         /// <summary>
@@ -578,7 +605,7 @@ namespace NetworksCeW.ProtocolLayers
             passedUnits.Add(unit);
 
             // Write my route, if best
-            var myDestination = routes.Find(dest => dest.DestUnitIndex == unit);
+            var myDestination = _routes.Find(dest => dest.DestUnitIndex == unit);
 
             // Shorter length
             if (myDestination.Length > routeLen)
@@ -595,16 +622,16 @@ namespace NetworksCeW.ProtocolLayers
             }
 
             // Go down through children
-            var myConnections = networkTopology[myUnitIndex].connections;
-            for (int conn = 0; conn < myConnections.Count; conn++)
+            var myConnections = networkTopology[_myUnitIndex].Connections;
+            foreach (var conn in myConnections)
             {
-                int childUnit = myConnections[conn].ToUnit;
-                // If we haven't checked that unit before
-                if (!passedUnits.Exists(u => u == childUnit))
-                {
-                    int newWidth = myConnections[conn].BandWidth;
-                    GoThroughAllRoutes(childUnit, passedUnits, routeLen+1, newWidth > maxWidth ? newWidth : maxWidth);
-                }
+                var childUnit = conn.ToUnit;
+
+                // If we have checked that unit before, ignore it
+                if (passedUnits.Exists(u => u == childUnit)) continue;
+
+                var newWidth = conn.BandWidth;
+                GoThroughAllRoutes(childUnit, passedUnits, routeLen + 1, newWidth > maxWidth ? newWidth : maxWidth);
             }
 
             // Remove current unit

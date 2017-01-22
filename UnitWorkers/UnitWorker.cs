@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using System.Windows.Annotations;
 using NetworksCeW.ProtocolLayers;
 using NetworksCeW.Structures;
 
@@ -13,19 +14,45 @@ namespace NetworksCeW.UnitWorkers
     /// </summary>
     public class UnitWorker
     {
-        public Queue<List<byte>> ListSendThis;
+        internal class EarlierProcessedDatagram
+        {
+            public readonly DateTime Time;
+            private readonly int _hashCode;
+
+            public EarlierProcessedDatagram(int id, byte s, byte d)
+            {
+                _hashCode = GetHashCode(id, s, d);
+                Time = new DateTime();
+                Time = DateTime.Now;
+            }
+
+            private static int GetHashCode(int id, byte s, byte d)
+            {
+                return ((id << 16) + (s << 8) + d);
+            }
+
+            public bool EqualHashCode(int id, byte s, byte d)
+            {
+                return GetHashCode(id, s, d) == _hashCode;
+            }
+        }
+
+        private Dictionary<int, Dictionary<int, List<Layer3ProtocolDatagramInstance>>> _receivedPartsOfDatagrams;
+        private List<EarlierProcessedDatagram> _listOfRecAndSentDatagrams;
+
+        public Queue<List<byte>> ListSendThis; /////////////////////////////
         public List<BufferWorker> ListBufferWorkers;
 
         private Thread _unitWorker;
-        private Unit _unit;
+        private readonly Unit _unit;
 
-        private UnitTerminal _myTerminal;
-        private List<UnitTerminal> _listOfTerminals;
+        private readonly UnitTerminal _myTerminal;
+        private readonly List<UnitTerminal> _listOfTerminals;
 
-        private byte _congestion = 1;
+        private byte _congestion = 1;    //////////////////////////////
 
         // Protocols' instances
-        private Layer3Protocol _layer3p;
+        private readonly Layer3Protocol _layer3p;
 
         public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
         {
@@ -34,6 +61,8 @@ namespace NetworksCeW.UnitWorkers
             _unit = unit;
             ListBufferWorkers = new List<BufferWorker>();
             _layer3p = new Layer3Protocol(unit.Index);
+            _receivedPartsOfDatagrams = new Dictionary<int, Dictionary<int, List<Layer3ProtocolDatagramInstance>>>();
+            _listOfRecAndSentDatagrams = new List<EarlierProcessedDatagram>();
         }
 
         public void WorkerStart()
@@ -53,18 +82,18 @@ namespace NetworksCeW.UnitWorkers
             if (_unit.ListBindsIndexes.Count == 0)
                 return;
 
-            for (int i = 0; i < _unit.ListBindsIndexes.Count; i++)
-                ListBufferWorkers.Add(new BufferWorker(_unit.ListBindsIndexes[i], _myTerminal, _unit.Buffer));
+            foreach (var bind in _unit.ListBindsIndexes)
+                ListBufferWorkers.Add(new BufferWorker(bind, _myTerminal, _unit.Buffer));
 
             Thread.Sleep(2000);
 
             foreach (var buff in ListBufferWorkers)
             {
-                int otherUnit = buff.Connection.GetSecondUnitIndex(_unit.Index);
+                int otherUnit = buff.EndUnitIndex;
                 buff.InitEndPointWorker(
                     _listOfTerminals.Find(
                         term => term.UnitInst.Index == otherUnit).UnitWorker.ListBufferWorkers.Find(
-                        b => b.Connection.Index == buff.Connection.Index));
+                        b => b.EndUnitIndex == _unit.Index));
             }
         }
 
@@ -89,48 +118,85 @@ namespace NetworksCeW.UnitWorkers
             InitBufferWorkers();
             StartAllBufferWorkers();
 
-            //while (true)
-            //{
-            foreach (var buff in ListBufferWorkers)
-                _myTerminal.UpdateBufferState(buff.CountBufferBusy());
-
-
-            var sendList = new List<byte>() { 1, 2, 3 };
-            foreach (var buffer in ListBufferWorkers)
-            {
-                var dtgr = "";
-                sendList.ForEach((byte a) => { dtgr += a.ToString(); });
-                WriteLog("Sent: " + dtgr);
-                buffer.PushNewLayer3Datagram(sendList);
-            }
-
+            var lastUpdated = new DateTime();
+            lastUpdated = DateTime.Now;
+            var secondsPassed = 0;
 
             while (true)
-            { 
-                foreach (var buffer in ListBufferWorkers)
+            {
+
+                // Update buffer busy every second
+                // Remove all outdated frames
+                if (DateTime.Now.Subtract(lastUpdated).TotalSeconds > 1)
                 {
-                    var recList = buffer.PullNewLayer3Datagram();
-                    if (recList != null)
-                    {
-                        var dtgr = "";
-                        recList.ForEach((byte a) => { dtgr += a.ToString(); });
-                        WriteLog("Received: " + dtgr);
-                    }
+                    foreach (var buff in ListBufferWorkers)
+                        _myTerminal.UpdateBufferState(buff.CountBufferBusy());
+
+                    RemoveOldDatagrams();
+
+                    secondsPassed++;
+                    lastUpdated = DateTime.Now;
                 }
 
-                Thread.Sleep(100);
+                #region Test sending
+                /*
+                var sendList = new List<byte>() { 1, 2, 3 };
+                foreach (var buffer in ListBufferWorkers)
+                {
+                    var dtgr = "";
+                    sendList.ForEach((byte a) => { dtgr += a.ToString(); });
+                    WriteLog("Sent: " + dtgr);
+                    buffer.PushNewLayer3Datagram(sendList);
+                }
 
-        }
+                while (true)
+                { 
+                    foreach (var buffer in ListBufferWorkers)
+                    {
+                        var recList = buffer.PullNewLayer3Datagram();
+                        if (recList != null)
+                        {
+                            var dtgr = "";
+                            recList.ForEach((byte a) => { dtgr += a.ToString(); });
+                            WriteLog("Received: " + dtgr);
+                        }
+                    }
+
+                    Thread.Sleep(100);
+                }
+                */
+                #endregion
+
+                // Share status every 30 seconds
+                if (secondsPassed > 29)
+                {
+                    var statusDatagram = MyStatusToDatagram();
+
+                    foreach (var buffer in ListBufferWorkers)
+                    {
+                        buffer.PushNewLayer3Datagram(statusDatagram);
+                    }
+
+                    secondsPassed = 0;
+                }
+
+                // Process to push upper or resend one new datagram from each buffer
+                foreach (var buffer in ListBufferWorkers)
+                {
+                    ReactToFrame(buffer.PullNewLayer3Datagram());
+                }
+                
+                // Send datagrams received from terminal or else
 
 
-                //Thread.Sleep(1000);
-            //}
+
+            }
         }
 
         /// <summary>
         /// Status must be shared to all unitWorkers each 30 seconds
         /// </summary>
-        private void ShareMyStatus()
+        private List<byte> MyStatusToDatagram()
         {
             var myConnections = new List<ToUnitConnection>();
             foreach (var bind in _unit.ListBindsIndexes)
@@ -143,29 +209,72 @@ namespace NetworksCeW.UnitWorkers
                 });
             }
 
-            var datagram = _layer3p.PackData(
+            var newId = _layer3p.GetNextId();
+            AddDatagramToSeen(newId, (byte) _unit.Index, Layer3Protocol.Brdcst);
+
+            return _layer3p.PackData(
                 _layer3p.MakeStatusData(myConnections),
                 _congestion,
-                0,
+                newId,
                 2,
                 0,
                 100,
-                Layer3Protocol.RTP,
+                Layer3Protocol.Rtp,
                 _unit.Index,
-                Layer3Protocol.BRDCST );
-
-            // Put datagram into buffer out list
+                Layer3Protocol.Brdcst );
         }
 
         private void ReactToFrame(List<byte> datagram)
         {
+            WriteLog("React to frame");
+
+
+
             var newFrame = _layer3p.UnpackFrame(datagram);
 
             if (newFrame == null) return;
+            if (DatagramWasReceivedBefore(newFrame)) return;
+
+            // Add frame to seen before
+            AddDatagramToSeen(newFrame.Identification, newFrame.Saddr, newFrame.Daddr);
+
+            switch (newFrame.Protocol)
+            {
+                case Layer3Protocol.Rtp:
+                    WriteLog("frame RTP");
 
 
 
 
+
+
+                    break;
+                case Layer3Protocol.Tcp:
+
+                    break;
+                case Layer3Protocol.Udp:
+
+                    break;
+                default:
+                    throw new Exception("BLAAAA WTFFFF");
+            }
+        }
+
+        private void RemoveOldDatagrams()
+        {
+            _listOfRecAndSentDatagrams.RemoveAll(
+                dtgr => DateTime.Now.Subtract(dtgr.Time).TotalSeconds > 20);
+        }
+
+        private void AddDatagramToSeen(int id, byte source, byte dest)
+        {
+            _listOfRecAndSentDatagrams.Add(new EarlierProcessedDatagram(id, source, dest));
+        }
+
+        private bool DatagramWasReceivedBefore(Layer3ProtocolDatagramInstance inst)
+        {
+            return _listOfRecAndSentDatagrams.Any(
+                datagram => datagram.EqualHashCode(inst.Identification, inst.Saddr, inst.Daddr));
         }
 
         /// <summary>
