@@ -120,8 +120,9 @@ namespace NetworksCeW.UnitWorkers
             _lockInQueue = new object();
             _lockLayer3InQueue = new object();
             _lockLayer3OutQueue = new object();
+            
+            _rnd = new Random(terminal.UnitInst.Index);
 
-            _rnd = new Random();
             _tryAgain = new DateTime();
         }
 
@@ -299,7 +300,7 @@ namespace NetworksCeW.UnitWorkers
                 {
                     _sentFrames.Clear();
                     StartCommunication();
-                    _tryAgain = DateTime.Now.AddMilliseconds(TIMEOUT * _rnd.Next(6));
+                    _tryAgain = DateTime.Now.AddMilliseconds(_rnd.Next(TIMEOUT * 5));
                 }
             }
 
@@ -315,7 +316,7 @@ namespace NetworksCeW.UnitWorkers
                 // It is time to receive frames
                 if (_myTurn == Turn.Listen)
                 {
-                    WriteLog("\n---------------------\nScenario 1");
+                    //////////////////////////////////////////WriteLog("\n---------------------\nScenario 1");
                     _markerInUse = false;
 
                     // Process all incoming frames until 
@@ -396,7 +397,7 @@ namespace NetworksCeW.UnitWorkers
                 // It is time to send info frames
                 if (_myTurn == Turn.SendInfo)
                 {
-                    WriteLog("\n---------------------\nScenario 2");
+                    /////////////////////////////////////////////////////////WriteLog("\n---------------------\nScenario 2");
 
                     var sendingLeftTime = TIMEOUT * 2;
                     var sentFramesCounter = 0;
@@ -778,7 +779,7 @@ namespace NetworksCeW.UnitWorkers
             switch (newFrame.Type)
             {
                 case FrameType.StartInit:
-                    WriteLog("rInit");
+                    //////////////////////////////////////////////////////////////WriteLog("rInit");
 
 
                     if (_myTurn != Turn.TryToStart)
@@ -790,12 +791,16 @@ namespace NetworksCeW.UnitWorkers
                     // there are no unconfirmed frames
                     if (_sentFrames.Count == 0)
                     {
+
+                        WriteLog("Connected");
+
+
                         // Send confirmation (ack)
                         // Without pushing it in wait queue
                         Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
                         PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.Ack, 0));
 
-                        WriteLog("Sent marker");
+                        //////////////////////////////////////////////////WriteLog("Sent marker");
 
                         _myTurn = Turn.Listen;
                         _nextFrameRec = 1;
@@ -804,6 +809,8 @@ namespace NetworksCeW.UnitWorkers
                     {
                         // Delete both sent frame and ignore received one
                         //??????? wait random time space
+
+
                         WriteLog("Failed to configure connection");
 
                         _sentFrames.Clear();
@@ -816,7 +823,7 @@ namespace NetworksCeW.UnitWorkers
 
                     break;
                 case FrameType.FinishInit:
-                    WriteLog("rFinish");
+                    ///////////////////////////////////////////////////////WriteLog("rFinish");
 
 
                     // If another buffer had the marker
@@ -829,7 +836,7 @@ namespace NetworksCeW.UnitWorkers
                         Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
                         PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.Ack, 0));
 
-                        WriteLog("Received marker");
+                        //////////////////////////////////////////////WriteLog("Received marker");
 
                         _myTurn = Turn.SendInfo;
                         _markerInUse = true;
@@ -845,7 +852,7 @@ namespace NetworksCeW.UnitWorkers
                     //* otherwise, the control one
                     if (newFrame.FrameNum != 0)
                     {
-                        WriteLog("rAckInfo");
+                        /////////////////////////////////////////////////////////////WriteLog("rAckInfo");
 
 
                         _sentFrames.RemoveAll(frameInst =>
@@ -860,28 +867,28 @@ namespace NetworksCeW.UnitWorkers
                         switch (_layer2p.GetTypeFast(_sentFrames[_sentFrames.Count - 1].Frame))
                         {
                             case FrameType.StartInit:
-                                WriteLog("rAckInit");
+                                //////////////////////////////////////////////////////////WriteLog("rAckInit");
 
 
                                 // Start initiation confirmed
                                 _myTurn = Turn.SendInfo;
 
-                                WriteLog("Marker received");
+                                /////////////////////////////////////////////////////////WriteLog("Marker received");
                                 _nextFrameSend = 1;
                                 _sentFrames.Clear();
                                 break;
                             case FrameType.FinishInit:
-                                WriteLog("rFinish");
+                                /////////////////////////////////////////////////////////////WriteLog("rFinish");
 
 
                                 // Finish of transmition confirmed
                                 _myTurn = Turn.Listen;
 
-                                WriteLog("Marker sent");
+                                ////////////////////////////////////////////////////////////WriteLog("Marker sent");
                                 _sentFrames.Clear();
                                 break;
                             case FrameType.MarkerPass:
-                                WriteLog("rAckMarker");
+                                /////////////////////////////////////////////////////////WriteLog("rAckMarker");
 
 
                                 // Now other buffer owns marker to send something
@@ -893,8 +900,8 @@ namespace NetworksCeW.UnitWorkers
                                 // Both buffers now nulled next coming frame index
                                 _nextFrameSend = 1;
                                 break;
-                            default:
-                                throw new Exception("BLAAAA WTFFFF");
+                            //default:
+                            //    throw new Exception("BLAAAA WTFFFF");
                         }
                     }
                     break;
@@ -904,7 +911,7 @@ namespace NetworksCeW.UnitWorkers
                     // ???
                     break;
                 case FrameType.MarkerPass:
-                    WriteLog("rMarker");
+                    ///////////////////////////////////////////////////////////////////////////////WriteLog("rMarker");
 
 
                     // Asked to send frames back (only in half-duplex)
@@ -915,7 +922,7 @@ namespace NetworksCeW.UnitWorkers
                     Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
                     PutFrameToAnotherBuffer(_layer2p.PackControl(FrameType.Ack, 0));
 
-                    WriteLog("Marker received");
+                    ///////////////////////////////////////////////////////////////////WriteLog("Marker received");
                     UpdateWaitTime();
                     break;
                 case FrameType.NullCounter:
@@ -926,7 +933,7 @@ namespace NetworksCeW.UnitWorkers
 
                     break;
                 case FrameType.Information:
-                    WriteLog("rInforma");
+                    //////////////////////////////////////////////////////////////WriteLog("rInforma");
 
 
                     // If frame number is not equal to the one, which was waited

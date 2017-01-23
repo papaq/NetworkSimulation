@@ -83,7 +83,10 @@ namespace NetworksCeW.UnitWorkers
                 return;
 
             foreach (var bind in _unit.ListBindsIndexes)
+            {
                 ListBufferWorkers.Add(new BufferWorker(bind, _myTerminal, _unit.Buffer));
+            }
+
 
             Thread.Sleep(2000);
 
@@ -121,10 +124,8 @@ namespace NetworksCeW.UnitWorkers
             var lastUpdated = new DateTime();
             lastUpdated = DateTime.Now;
             var secondsPassed = 30;
-
-
-            /*
             
+
             while (true)
             {
                 
@@ -140,12 +141,7 @@ namespace NetworksCeW.UnitWorkers
                     secondsPassed++;
                     lastUpdated = DateTime.Now;
                 }
-
-
                 
-
-
-
                 // Share status every 30 seconds
                 //if (secondsPassed > 29)
                 if (true)
@@ -159,24 +155,16 @@ namespace NetworksCeW.UnitWorkers
                         );
 
                     var statusDatagram = MyStatusToDatagram();
-
-
-
-
-                
+                    
                     foreach (var buffer in ListBufferWorkers)
                     {
                         buffer.PushDatagramToProcessOnLayer2(statusDatagram);
                     }
-
-                
+                    
                     _layer3p.UpdateNetworkTopology();
 
                     secondsPassed = 0;
                 }
-
-
-
                 
                 // Process to push upper or resend one new datagram from each buffer
                 foreach (var buffer in ListBufferWorkers)
@@ -186,9 +174,6 @@ namespace NetworksCeW.UnitWorkers
                 
                 // Send datagrams received from terminal or else
                 
-
-
-
 
                 Thread.Sleep(500);
             }
@@ -220,7 +205,7 @@ namespace NetworksCeW.UnitWorkers
                 Thread.Sleep(100);
             }
             */
-            //#endregion
+            #endregion
         }
 
         /// <summary>
@@ -269,7 +254,7 @@ namespace NetworksCeW.UnitWorkers
         /// <param name="datagram"></param>
         private void ReactToFrame(List<byte> datagram)
         {
-            ///////////////////////WriteLog("React to frame");
+            //WriteLog("React to frame");
 
 
 
