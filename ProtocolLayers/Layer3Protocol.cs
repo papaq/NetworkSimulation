@@ -82,7 +82,7 @@ namespace NetworksCeW.ProtocolLayers
         public const byte Rtp = 0x55;
         public const byte Brdcst = 0xFF;
 
-        public const int Timeout = 60000;
+        public const int Timeout = 40000;
 
         private readonly int _myUnitIndex;
 
@@ -349,6 +349,9 @@ namespace NetworksCeW.ProtocolLayers
             datagram[10] = checkSum[0];
             datagram[11] = checkSum[1];
 
+            // Put data
+            datagram.AddRange(data);
+
             return datagram;
         }
 
@@ -387,20 +390,17 @@ namespace NetworksCeW.ProtocolLayers
         /// </summary>
         public void UpdateNetworkTopology()
         {
-            DateTime time = new DateTime();
-            int compareNow = time.Millisecond;
-
             int iter = 0, count = networkTopology.Count;
             while (iter != networkTopology.Count)
             {
-                if (Timeout > compareNow - networkTopology[iter].UpdateTime.Millisecond)
+                if (Timeout > DateTime.Now.Subtract(networkTopology[iter].UpdateTime).TotalMilliseconds)
                 {
                     iter++;
                     continue;
                 }
 
                 // Delete unit from all records in list
-                int unitIndex = networkTopology[iter].UnitIndex;
+                var unitIndex = networkTopology[iter].UnitIndex;
                 foreach (var unitInfo in networkTopology)
                     unitInfo.Connections.RemoveAll(conn => conn.ToUnit == unitIndex);
 
@@ -434,6 +434,7 @@ namespace NetworksCeW.ProtocolLayers
                     var unitToInfo = networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == conn.ToUnit
                     );
+
                     if (unitToInfo == null) continue;
 
                     currentUnitInfo.Connections.Add(conn);
@@ -447,8 +448,6 @@ namespace NetworksCeW.ProtocolLayers
                             BandWidth = conn.BandWidth
                         });
                     }
-
-                    // Else ignore this connection
                 }
 
                 currentUnitInfo.UpdateTime = DateTime.Now;
@@ -460,7 +459,8 @@ namespace NetworksCeW.ProtocolLayers
                 var newUnitInfo = new UnitConnectionsUnits(unit);
 
                 // Check all connections for toUnit existance
-                for (var i = 0; i < connections.Count; i++)
+                var i = 0;
+                while (i < connections.Count)
                 {
                     var currentToUnitInfo = networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == connections[i].ToUnit
@@ -477,6 +477,7 @@ namespace NetworksCeW.ProtocolLayers
                     var toMyUnitConn = currentToUnitInfo.Connections.Find(
                         c => c.ToUnit == unit
                     );
+
                     if (toMyUnitConn == null)
                     {
                         // Add new connection
@@ -486,6 +487,8 @@ namespace NetworksCeW.ProtocolLayers
                             BandWidth = connections[i].BandWidth
                         });
                     }
+
+                    i++;
                 }
 
                 // Create list of connections
@@ -506,10 +509,12 @@ namespace NetworksCeW.ProtocolLayers
         /// <returns></returns>
         public List<ToUnitConnection> GetConnectionsFromBytes(List<byte> list)
         {
-            var count = list.Count / 8;
+            if (list.Count % 8 != 0)
+                return null;
+            
             var connections = new List<ToUnitConnection>();
 
-            for (var i = 0; i < count; i++)
+            while (list.Count > 0)
             {
                 var toUnit = MakeIntFromBytes(list.Take(4).ToList());
                 var bandWidth = MakeIntFromBytes(list.Skip(4).Take(4).ToList());
@@ -539,9 +544,7 @@ namespace NetworksCeW.ProtocolLayers
                 GetThirdByte(connection.BandWidth),
                 GetFourthByte(connection.BandWidth)
             };
-
-
-
+            
             return bytes;
         }
 
