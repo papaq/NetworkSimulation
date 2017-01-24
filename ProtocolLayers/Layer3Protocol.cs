@@ -588,7 +588,7 @@ namespace NetworksCeW.ProtocolLayers
             // Find best routes to each destination
             var passedUnits = new List<int>() {_myUnitIndex};
 
-            var myConnections = networkTopology[_myUnitIndex].Connections;
+            var myConnections = networkTopology.Find(u => u.UnitIndex == _myUnitIndex).Connections;
             foreach (var conn in myConnections)
             {
                 GoThroughAllRoutes(conn.ToUnit, passedUnits, 1, conn.BandWidth);
@@ -625,7 +625,7 @@ namespace NetworksCeW.ProtocolLayers
             }
 
             // Go down through children
-            var myConnections = networkTopology[_myUnitIndex].Connections;
+            var myConnections = networkTopology.Find(u => u.UnitIndex == _myUnitIndex).Connections;
             foreach (var conn in myConnections)
             {
                 var childUnit = conn.ToUnit;

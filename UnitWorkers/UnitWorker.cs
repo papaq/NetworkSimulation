@@ -175,7 +175,7 @@ namespace NetworksCeW.UnitWorkers
                 // Send datagrams received from terminal or else
                 
 
-                Thread.Sleep(500);
+                Thread.Sleep(50);
             }
 
             #region Test sending
@@ -304,8 +304,11 @@ namespace NetworksCeW.UnitWorkers
 
         private bool DatagramWasReceivedBefore(Layer3ProtocolDatagramInstance inst)
         {
-            return _listOfRecAndSentDatagrams.Any(
-                datagram => datagram.EqualHashCode(inst.Identification, inst.Saddr, inst.Daddr));
+            foreach (var datagram in _listOfRecAndSentDatagrams)
+            {
+                if (datagram.EqualHashCode(inst.Identification, inst.Saddr, inst.Daddr)) return true;
+            }
+            return false;
         }
 
         /// <summary>
