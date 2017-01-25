@@ -372,10 +372,13 @@ namespace NetworksCeW.ProtocolLayers
                 TotalLength = GetTotalLength(datagram),
                 FragmentOffset = GetOffset(datagram),
                 Protocol = GetProtocol(datagram),
-                TTL = GetTTL(datagram),
+                TTL = (byte)(GetTTL(datagram)-1),
                 Saddr = GetSourceAddress(datagram),
                 Daddr = GetDestinationAddress(datagram),
             };
+
+            if (datagramInst.TTL == 0)
+                return null;
 
             return datagramInst;
         }
@@ -407,10 +410,8 @@ namespace NetworksCeW.ProtocolLayers
                 networkTopology.RemoveAt(iter);
             }
 
-            if (count != networkTopology.Count)
-            {
+            //if (count != networkTopology.Count)
                 RebuildRoutes();
-            }
         }
 
         /// <summary>
@@ -588,7 +589,12 @@ namespace NetworksCeW.ProtocolLayers
             // Find best routes to each destination
             var passedUnits = new List<int>() {_myUnitIndex};
 
-            var myConnections = networkTopology.Find(u => u.UnitIndex == _myUnitIndex).Connections;
+            var myConnections = networkTopology.Find(u => u.UnitIndex == _myUnitIndex)?.Connections;
+            if (myConnections == null)
+            {
+                return;
+            }
+
             foreach (var conn in myConnections)
             {
                 GoThroughAllRoutes(conn.ToUnit, passedUnits, 1, conn.BandWidth);
@@ -639,6 +645,11 @@ namespace NetworksCeW.ProtocolLayers
 
             // Remove current unit
             passedUnits.Remove(unit);
+        }
+
+        public List<int> GetDestinations()
+        {
+            return _routes.Select(route => route.DestUnitIndex).ToList();
         }
 
         #endregion

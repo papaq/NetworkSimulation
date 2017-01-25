@@ -69,12 +69,14 @@ namespace NetworksCeW.UnitWorkers
         {
             _unitWorker = new Thread(Worker);
             _unitWorker.Start();
+            _unitWorker.IsBackground = true;
         }
 
         public void WorkerAbort()
         {
             AbortAllBufferWorkers();
             _unitWorker.Abort();
+            ListBufferWorkers.Clear();
         }
 
         private void InitBufferWorkers()
@@ -124,11 +126,11 @@ namespace NetworksCeW.UnitWorkers
             var lastUpdated = new DateTime();
             lastUpdated = DateTime.Now;
             var secondsPassed = 30;
-            
+
 
             while (true)
             {
-                
+
                 // Update buffer busy every second
                 // Remove all outdated frames
                 if (DateTime.Now.Subtract(lastUpdated).TotalSeconds > 1)
@@ -141,71 +143,51 @@ namespace NetworksCeW.UnitWorkers
                     secondsPassed++;
                     lastUpdated = DateTime.Now;
                 }
-                
+
                 // Share status every 30 seconds
                 //if (secondsPassed > 29)
                 if (true)
                 {
-                    /////////////////////////////////////////////////////WriteLog("bgherst");
-
-                    // Push own status to topology
-                    _layer3p.UpdateUnitInformation(
-                        _unit.Index,
-                        MakeListOfToUnitConnections()
-                        );
-
+                    // Send own status
                     var statusDatagram = MyStatusToDatagram();
-                    
+
                     foreach (var buffer in ListBufferWorkers)
                     {
                         buffer.PushDatagramToProcessOnLayer2(statusDatagram);
                     }
-                    
+
+                    // Push own status to topology
+                    _layer3p.UpdateUnitInformation(
+                    _unit.Index,
+                    MakeListOfToUnitConnections()
+                    );
+
                     _layer3p.UpdateNetworkTopology();
+                    _myTerminal.UpdateDestinations(_layer3p.GetDestinations());
 
                     secondsPassed = 0;
                 }
-                
+
                 // Process to push upper or resend one new datagram from each buffer
                 foreach (var buffer in ListBufferWorkers)
                 {
                     ReactToFrame(buffer.PullDatagramToProcessOnLayer3());
                 }
-                
+
+
+
+
+
+
                 // Send datagrams received from terminal or else
-                
 
-                Thread.Sleep(50);
+
+
+
+
+
+                Thread.Sleep(200);
             }
-
-            #region Test sending
-            /*
-            var sendList = new List<byte>() { 1, 2, 3 };
-            foreach (var buffer in ListBufferWorkers)
-            {
-                var dtgr = "";
-                sendList.ForEach((byte a) => { dtgr += a.ToString(); });
-                WriteLog("Sent: " + dtgr);
-                buffer.PushNewLayer3Datagram(sendList);
-            }
-
-            while (true)
-            { 
-                foreach (var buffer in ListBufferWorkers)
-                {
-                    var recList = buffer.PullNewLayer3Datagram();
-                    if (recList != null)
-                    {
-                        var dtgr = "";
-                        recList.ForEach((byte a) => { dtgr += a.ToString(); });
-                        WriteLog("Received: " + dtgr);
-                    }
-                }
-
-                Thread.Sleep(100);
-            }
-            */
-            #endregion
         }
 
         /// <summary>
@@ -270,15 +252,30 @@ namespace NetworksCeW.UnitWorkers
             {
                 case Layer3Protocol.Rtp:
                     WriteLog("frame RTP");
-
-
-
-
+                    
                     _layer3p.UpdateUnitInformation(
                         newFrame.Saddr, 
                         _layer3p.GetConnectionsFromBytes(newFrame.Data)
                         );
-                    
+
+                    var datagramToSend = _layer3p.PackData(
+                                newFrame.Data,
+                                _congestion,
+                                newFrame.Identification,
+                                newFrame.Flags,
+                                newFrame.FragmentOffset,
+                                newFrame.TTL,
+                                newFrame.Protocol,
+                                newFrame.Saddr,
+                                newFrame.Daddr
+                                );
+
+                    foreach (var buffer in ListBufferWorkers)
+                    {
+                        buffer.PushDatagramToProcessOnLayer2(datagramToSend);
+
+                    }
+
                     break;
                 case Layer3Protocol.Tcp:
 

@@ -49,14 +49,28 @@ namespace NetworksCeW.UnitWorkers
             });
         }
 
+        public void UpdateDestinations(List<int> dests)
+        {
+            _terminal.UpdateDestinatioinVariants(dests);
+        }
+
         public void DeleteUnit(Unit unit)
         {
-
+            UnitWorker.WorkerAbort();
+            UnitWorker = null;
+            _terminal.Close();
         }
 
         public void StartWorker()
         {
             UnitWorker.WorkerStart();
+        }
+
+        public void AbortAll()
+        {
+            UnitWorker.WorkerAbort();
+            UnitWorker = null;
+            _terminal.Close();
         }
 
         public void WriteLog(DateTime time, string log)

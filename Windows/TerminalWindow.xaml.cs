@@ -80,7 +80,7 @@ namespace NetworksCeW.Windows
 
         private void UpdateListOfBuffers()
         {
-            List<BufferBusy> listOfBuffers = new List<BufferBusy>(_listOfBuffers);
+            var listOfBuffers = new List<BufferBusy>(_listOfBuffers);
             _listOfBuffers.Clear();
 
             Dispatcher.Invoke(() =>
@@ -90,7 +90,7 @@ namespace NetworksCeW.Windows
             
             foreach (var index in _unit.ListBindsIndexes)
             {
-                int toUnit = MainWindow.ListOfBinds.Find(
+                var toUnit = MainWindow.ListOfBinds.Find(
                         bind => bind.Index == index
                         ).GetSecondUnitIndex(_unit.Index);
                 AddItem(new BufferBusy()
@@ -137,9 +137,21 @@ namespace NetworksCeW.Windows
 
         public void Update()
         {
-            Dispatcher.Invoke(() => {
-                UpdateLayout();
-            });
+            Dispatcher.Invoke(UpdateLayout);
+        }
+
+        public void UpdateDestinatioinVariants(List<int> destinations)
+        {
+            Dispatcher.Invoke((() =>
+            {
+                ComboChoose.Items.Clear();
+                foreach (var dest in destinations)
+                {
+                    ComboChoose.Items.Add(dest);
+                }
+
+            }));
+            Update();
         }
     }
 }

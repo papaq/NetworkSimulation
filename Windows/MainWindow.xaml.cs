@@ -1083,20 +1083,14 @@ namespace NetworksCeW.Windows
 
         private void UpdateTerminal(Unit unit)
         {
-            UnitTerminal term = ListOfTerminals.Find(t => t.UnitInst == unit);
-            if (term != null)
-            {
-                term.UpdateBuffersNumber(unit);
-            }
+            var term = ListOfTerminals.Find(t => t.UnitInst == unit);
+            term?.UpdateBuffersNumber(unit);
         }
 
         private void DeleteTerminal(Unit unit)
         {
-            UnitTerminal term = ListOfTerminals.Find(t => t.UnitInst == unit);
-            if (term != null)
-            {
-                term.DeleteUnit(unit);
-            }
+            var term = ListOfTerminals.Find(t => t.UnitInst == unit);
+            term?.DeleteUnit(unit);
 
             ListOfTerminals.Remove(term);
         }
@@ -1555,6 +1549,14 @@ namespace NetworksCeW.Windows
                 {
                     terminal.StartWorker();
                 }
+            }
+        }
+
+        private void MainWindow1_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            foreach (var terminal in ListOfTerminals)
+            {
+                terminal.AbortAll();
             }
         }
     }

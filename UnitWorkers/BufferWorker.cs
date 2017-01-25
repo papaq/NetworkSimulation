@@ -135,6 +135,7 @@ namespace NetworksCeW.UnitWorkers
         {
             _bufferWorker = _chanAsync ? new Thread(WorkerDuplex) : new Thread(WorkerHDuplex);
             _bufferWorker.Start();
+            _bufferWorker.IsBackground = true;
         }
 
         public void WorkerAbort()
@@ -579,44 +580,19 @@ namespace NetworksCeW.UnitWorkers
                 }
 
                 // If window is full, resend all frames
-                if (_sentFrames.Count == WINDOW)
+                if (_sentFrames.Count >= WINDOW)
                 {
 
                     WriteLog("__we resend:__ " + _sentFrames.Count);
                     
                     ResendAllSentFrames();
                 }
-
-                // If next send number is 31
-                // Wait for the last 30th frame to be confirmed
-                while (_nextFrameSend == 31)
-                {
-                    for (var i = 0; i < WINDOW; i++)
-                    {
-                        if (_nextFrameSend == 1)
-                            break;
-
-                        ReactToFrameD(PullNextIncomingFrame());
-                        Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH * 10));
-                    }
-
-                    if (_nextFrameSend == 1)
-                        break;
-                    
-                    ResendAllSentFrames();
-                    while (_toSendFrames.Find(
-                        fr => _layer2p.GetTypeFast(fr.Frame) != FrameType.Ack) != null)
-                    {
-                        SendAllWaitingFrames();
-                        Thread.Sleep(CountSendTime(Layer2Protocol.HEADER_LENGTH));
-                    }
-                }
                 
                 // Send next frame, if the window is 
                 // not yet full
                 if (_sentFrames.Count >= WINDOW) continue;
 
-                Thread.Sleep(100);
+                Thread.Sleep(150);
                 
                 var datagramToSend = PullDatagramToProcessOnLayer2();
 
@@ -625,13 +601,14 @@ namespace NetworksCeW.UnitWorkers
                     Thread.Sleep(TIMEOUT);
                     continue;
                 }
-
-
+                
                 // If next frame num = 30, send info and null frame
                 // Else send plain info frame
                 var frameToSend = _layer2p.PackData(datagramToSend, 
                     _nextFrameSend == 30 ? FrameType.InfoAndNull : FrameType.Information, 
-                    _nextFrameSend++);
+                    _nextFrameSend);
+
+                _nextFrameSend = _nextFrameSend == 30 ? (byte)1 : ++_nextFrameSend;
 
                 _toSendFrames.Add(new SendFrameStruct(
                     frameToSend,
@@ -957,14 +934,10 @@ namespace NetworksCeW.UnitWorkers
                               == newFrame.FrameNum);
                     if (idx > -1)
                     {
-                        if (_layer2p.GetTypeFast(_sentFrames[idx].Frame) == FrameType.InfoAndNull)
-                        {
-                            _nextFrameSend = 1;
-                        }
-                        
                         _sentFrames.RemoveAll(
-                            fr => _layer2p.GetIndexFast(fr.Frame) 
-                            <= newFrame.FrameNum);
+                            fr =>
+                                _layer2p.GetIndexFast(fr.Frame) <= newFrame.FrameNum
+                                || _layer2p.GetIndexFast(fr.Frame) > 30 - WINDOW + newFrame.FrameNum);
                     }
 
                     break;
@@ -1031,7 +1004,7 @@ namespace NetworksCeW.UnitWorkers
                     break;
 
                 default:
-                    throw new Exception("BLAAAA WTFFFF");
+                    throw new Exception("BAAAAAAAD!!!!!");
             }
         }
 
