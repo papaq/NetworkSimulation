@@ -145,8 +145,8 @@ namespace NetworksCeW.UnitWorkers
                 }
 
                 // Share status every 30 seconds
-                //if (secondsPassed > 29)
-                if (true)
+                if (secondsPassed > 29)
+                //if (true)
                 {
                     // Send own status
                     var statusDatagram = MyStatusToDatagram();
