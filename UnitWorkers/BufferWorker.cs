@@ -1,4 +1,5 @@
-﻿using System;
+﻿
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -145,7 +146,7 @@ namespace NetworksCeW.UnitWorkers
 
         public byte CountBufferBusy()
         {
-            return (byte) ((_bufferSize - _bufferLeft) / _bufferSize * 100);
+            return (byte) ((_bufferSize - _bufferLeft) * 100 / _bufferSize);
         }
 
         /// <summary>
@@ -224,6 +225,7 @@ namespace NetworksCeW.UnitWorkers
         /// <param name="datagram"></param>
         public void PushDatagramToProcessOnLayer2(List<byte> datagram)
         {
+            //WriteLog("to Process " + datagram.Count);
             lock (_lockLayer3InQueue)
             {
                 toProcessOnLayer2.Enqueue(datagram);
@@ -249,6 +251,7 @@ namespace NetworksCeW.UnitWorkers
         /// <param name="datagram"></param>
         private void PushDatagramToProcessOnLayer3(List<byte> datagram)
         {
+            //WriteLog("Return " + datagram.Count);
             lock (_lockLayer3OutQueue)
             {
                 toProcessOnLayer3.Enqueue(datagram);
@@ -306,15 +309,18 @@ namespace NetworksCeW.UnitWorkers
             _toSendFrames.Clear();
             _sentFrames.Clear();
 
+
+            _nextFrameRec = 1;
+
             // Exchange frames
             while (true)
             {
-                _nextFrameRec = 1;
 
+                //_nextFrameRec = 1;
 
                 // S C E N A R I O   1:
 
-                
+
                 // It is time to receive frames
                 if (_myTurn == Turn.Listen)
                 {
@@ -548,12 +554,13 @@ namespace NetworksCeW.UnitWorkers
                         ReactToFrameHD(PullNextIncomingFrame());
 
                         // Resend if there was still no response
-                        if (_sentFrames.Count > 0)
-                        {
-                            _toSendFrames.Insert(0, _sentFrames[_sentFrames.Count - 1]);
-                            _sentFrames.RemoveAt(_sentFrames.Count - 1);
-                        }
+                        if (_sentFrames.Count <= 0) continue;
+
+                        _toSendFrames.Insert(0, _sentFrames[_sentFrames.Count - 1]);
+                        _sentFrames.RemoveAt(_sentFrames.Count - 1);
                     }
+                    
+                    _nextFrameRec = 1;
                 }
             }
         }

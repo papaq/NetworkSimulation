@@ -32,7 +32,7 @@ namespace NetworksCeW.ProtocolLayers
         InfoAndNull = 6
     }
 
-    internal class Layer2Protocol
+    internal class Layer2Protocol : ProtocolInitialManipulations
     {
         private const byte FLAG = 0x7E;
         public const byte HEADER_LENGTH = 5;
@@ -68,17 +68,7 @@ namespace NetworksCeW.ProtocolLayers
                 (byte)chksum
             };
         }
-
-        private static int ShiftLeft(int what, int times)
-        {
-            return (what << times);
-        }
-
-        private static int ShiftRight(int what, int times)
-        {
-            return (what >> times);
-        }
-
+        
         private static FrameType GetFrameType(byte controlByte)
         {
             return (FrameType)ShiftRight(controlByte, 5);

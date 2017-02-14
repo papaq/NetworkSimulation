@@ -62,10 +62,10 @@
                     <TextBlock Text="Text" Grid.Row="1"/>
                     <ComboBox x:Name="ComboChoose" Grid.Column="1" HorizontalAlignment="Left" Height="31" Margin="18,0,0,0" VerticalAlignment="Center" Width="118" Focusable="False" FontSize="15" SelectedIndex="0" IsTabStop="False" IsTextSearchEnabled="False" Panel.ZIndex="2" >
                     </ComboBox>
-                    <TextBox x:Name="TextBox" Grid.Column="1" Grid.Row="1" Margin="5" ToolTip="Type in Your message"/>
+                    <TextBox x:Name="TextBoxMessage" Grid.Column="1" Grid.Row="1" Margin="5" ToolTip="Type in Your message"/>
                     <RadioButton x:Name="RadioTCP"  Grid.Row="2" Grid.Column="0" VerticalAlignment="Center" Content="TCP" IsChecked="True"/>
                     <RadioButton x:Name="RadioUDP"  Grid.Row="2" Grid.Column="1" VerticalAlignment="Center" Content="UDP" IsChecked="False"/>
-                    <Button x:Name="ButtonSend" Grid.Row="3" Grid.Column="1" Content="Send" FontSize="16" Width="100" Margin="5"/>
+                    <Button x:Name="ButtonSend" Grid.Row="3" Grid.Column="1" Content="Send" FontSize="16" Width="100" Margin="5" Click="ButtonSend_Click"/>
                 </Grid>
             </TabItem>
             <TabItem Header="Log" >

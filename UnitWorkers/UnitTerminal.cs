@@ -21,7 +21,7 @@ namespace NetworksCeW.UnitWorkers
         public UnitTerminal(Unit unit, List<UnitTerminal> listTerminals)
         {
             UnitInst = unit;
-            _terminal = new TerminalWindow(UnitInst);
+            _terminal = new TerminalWindow(UnitInst, UnitWorker);
             UnitWorker = new UnitWorker(this, listTerminals, UnitInst);
         }
 
@@ -30,7 +30,7 @@ namespace NetworksCeW.UnitWorkers
             if (_terminal != null && _terminal.IsVisible == true)
                 return;
 
-            _terminal = new TerminalWindow(UnitInst);
+            _terminal = new TerminalWindow(UnitInst, UnitWorker);
             _terminal.Show();
         }
 
@@ -40,16 +40,16 @@ namespace NetworksCeW.UnitWorkers
             _terminal.Update();
         }
 
-        public void UpdateBufferState(byte busy)
+        public void UpdateBufferState(int toUnit, byte busy)
         {
             _terminal.UpdateItem(new BufferBusy()
             {
-                ToUnit = UnitInst.Index,
+                ToUnit = toUnit,
                 Utilization = busy.ToString() + "%"
             });
         }
 
-        public void UpdateDestinations(List<int> dests)
+        public void UpdateDestinations(List<byte> dests)
         {
             _terminal.UpdateDestinatioinVariants(dests);
         }

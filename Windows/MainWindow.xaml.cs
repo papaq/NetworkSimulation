@@ -1543,12 +1543,10 @@ namespace NetworksCeW.Windows
 
         private void ButtonStartCasey_Click(object sender, RoutedEventArgs e)
         {
+            ButtonStartCasey.IsEnabled = false;
             foreach (var terminal in ListOfTerminals)
             {
-                if (terminal != null)
-                {
-                    terminal.StartWorker();
-                }
+                terminal?.StartWorker();
             }
         }
 

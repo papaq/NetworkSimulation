@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using NetworksCeW.Structures;
+using NetworksCeW.UnitWorkers;
 
 namespace NetworksCeW.Windows
 {
@@ -40,15 +41,17 @@ namespace NetworksCeW.Windows
     {
         private Unit _unit;
         private List<BufferBusy> _listOfBuffers;
+        private readonly UnitWorker _unitWorker;
 
         public TerminalWindow()
         {
             InitializeComponent();
         }
 
-        public TerminalWindow(Unit unit)
+        public TerminalWindow(Unit unit, UnitWorker unitWorker)
         {
             InitializeComponent();
+            _unitWorker = unitWorker;
             _listOfBuffers = new List<BufferBusy>();
             InitInterfaceFill(unit);
         }
@@ -140,7 +143,7 @@ namespace NetworksCeW.Windows
             Dispatcher.Invoke(UpdateLayout);
         }
 
-        public void UpdateDestinatioinVariants(List<int> destinations)
+        public void UpdateDestinatioinVariants(List<byte> destinations)
         {
             Dispatcher.Invoke((() =>
             {
@@ -152,6 +155,38 @@ namespace NetworksCeW.Windows
 
             }));
             Update();
+        }
+
+        private void ButtonSend_Click(object sender, RoutedEventArgs e)
+        {
+            if (RadioTCP.IsChecked == null)
+            {
+                MessageBox.Show("Protocol is not specified!");
+                return;
+            }
+            if (ComboChoose.SelectedIndex == -1)
+            {
+                MessageBox.Show("Destination unit is not chosen!");
+                return;
+            }
+            if (TextBoxMessage.Text.Length == 0)
+            {
+                MessageBox.Show("Message is empty!");
+                return;
+            }
+
+            _unitWorker.SendMessage(
+                (bool) RadioTCP.IsChecked ? (byte)6 : (byte)17,
+                MessageToList(TextBoxMessage.Text),
+                byte.Parse(ComboChoose.Text)
+                );
+
+            MessageBox.Show("Message is sent!");
+        }
+
+        private static List<byte> MessageToList(string message)
+        {
+            return message.Select(ch => (byte) ch).ToList();
         }
     }
 }

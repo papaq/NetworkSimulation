@@ -53,6 +53,7 @@ namespace NetworksCeW.UnitWorkers
 
         // Protocols' instances
         private readonly Layer3Protocol _layer3p;
+        private readonly Layer4Protocol _layer4p;
 
         public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
         {
@@ -60,7 +61,8 @@ namespace NetworksCeW.UnitWorkers
             _listOfTerminals = listTerminals;
             _unit = unit;
             ListBufferWorkers = new List<BufferWorker>();
-            _layer3p = new Layer3Protocol(unit.Index);
+            _layer3p = new Layer3Protocol((byte)unit.Index);
+            _layer4p = new Layer4Protocol((byte)unit.Index, terminal);
             _receivedPartsOfDatagrams = new Dictionary<int, Dictionary<int, List<Layer3ProtocolDatagramInstance>>>();
             _listOfRecAndSentDatagrams = new List<EarlierProcessedDatagram>();
         }
@@ -75,7 +77,7 @@ namespace NetworksCeW.UnitWorkers
         public void WorkerAbort()
         {
             AbortAllBufferWorkers();
-            _unitWorker.Abort();
+            _unitWorker?.Abort();
             ListBufferWorkers.Clear();
         }
 
@@ -118,13 +120,20 @@ namespace NetworksCeW.UnitWorkers
             }
         }
 
+        public void SendMessage(byte protocol, List<byte> data, byte toUnit)
+        {
+            if (_unitWorker.IsAlive)
+            {
+                _layer4p.PushMessageToSend(protocol, data, toUnit);
+            }
+        }
+
         private void Worker()
         {
             InitBufferWorkers();
             StartAllBufferWorkers();
 
-            var lastUpdated = new DateTime();
-            lastUpdated = DateTime.Now;
+            var lastUpdated = DateTime.Now;
             var secondsPassed = 30;
 
 
@@ -136,7 +145,7 @@ namespace NetworksCeW.UnitWorkers
                 if (DateTime.Now.Subtract(lastUpdated).TotalSeconds > 1)
                 {
                     foreach (var buff in ListBufferWorkers)
-                        _myTerminal.UpdateBufferState(buff.CountBufferBusy());
+                        _myTerminal.UpdateBufferState(buff.EndUnitIndex, buff.CountBufferBusy());
 
                     RemoveOldDatagrams();
 
@@ -146,11 +155,12 @@ namespace NetworksCeW.UnitWorkers
 
                 // Share status every 30 seconds
                 if (secondsPassed > 29)
-                //if (true)
                 {
-                    // Send own status
+
+                    // Make own status
                     var statusDatagram = MyStatusToDatagram();
 
+                    // Send status to each connected unit
                     foreach (var buffer in ListBufferWorkers)
                     {
                         buffer.PushDatagramToProcessOnLayer2(statusDatagram);
@@ -158,8 +168,8 @@ namespace NetworksCeW.UnitWorkers
 
                     // Push own status to topology
                     _layer3p.UpdateUnitInformation(
-                    _unit.Index,
-                    MakeListOfToUnitConnections()
+                        (byte)_unit.Index,
+                        MakeListOfToUnitConnections()
                     );
 
                     _layer3p.UpdateNetworkTopology();
@@ -175,7 +185,26 @@ namespace NetworksCeW.UnitWorkers
                 }
 
 
+                // Resend packet after timeout
+                var resendDatagram = _layer4p.ResendPacketAfterTimeout();
+                if (resendDatagram != null)
+                {
+                    var buffer = GetBufferWorker(Layer4Protocol.GetPseudoDestination(resendDatagram));
+                    buffer.PushDatagramToProcessOnLayer2(
+                            _layer3p.PackData(
+                                resendDatagram.Skip(12).ToList(),
+                                _congestion,
+                                _layer3p.GetNextId(),
+                                2,
+                                0,
+                                100,
+                                Layer4Protocol.GetProtocolCode(resendDatagram),
+                                _unit.Index,
+                                Layer4Protocol.GetPseudoDestination(resendDatagram)
+                            ));
 
+                    WriteLog("Resent packet");
+                }
 
 
 
@@ -210,6 +239,12 @@ namespace NetworksCeW.UnitWorkers
                 Layer3Protocol.Brdcst );
         }
 
+        private BufferWorker GetBufferWorker(byte toUnit)
+        {
+            var nextUnit = _layer3p.GetNextRoutingTo(toUnit);
+            return ListBufferWorkers.Find(buffer => buffer.EndUnitIndex == nextUnit);
+        }
+
         /// <summary>
         /// Put own connections' status into list of ToUnitConnections
         /// </summary>
@@ -240,48 +275,102 @@ namespace NetworksCeW.UnitWorkers
 
 
 
-            var newFrame = _layer3p.UnpackFrame(datagram);
+            var receivedFrame = _layer3p.UnpackFrame(datagram);
 
-            if (newFrame == null) return;
-            if (DatagramWasReceivedBefore(newFrame)) return;
+            if (receivedFrame == null) return;
+            if (DatagramWasReceivedBefore(receivedFrame)) return;
 
             // Add frame to seen before
-            AddDatagramToSeen(newFrame.Identification, newFrame.Saddr, newFrame.Daddr);
+            AddDatagramToSeen(receivedFrame.Identification, receivedFrame.Saddr, receivedFrame.Daddr);
 
-            switch (newFrame.Protocol)
+            switch (receivedFrame.Protocol)
             {
                 case Layer3Protocol.Rtp:
-                    WriteLog("frame RTP");
+                    WriteLog("Received RTP");
                     
                     _layer3p.UpdateUnitInformation(
-                        newFrame.Saddr, 
-                        _layer3p.GetConnectionsFromBytes(newFrame.Data)
+                        receivedFrame.Saddr, 
+                        _layer3p.GetConnectionsFromBytes(receivedFrame.Data)
                         );
 
                     var datagramToSend = _layer3p.PackData(
-                                newFrame.Data,
+                                receivedFrame.Data,
                                 _congestion,
-                                newFrame.Identification,
-                                newFrame.Flags,
-                                newFrame.FragmentOffset,
-                                newFrame.TTL,
-                                newFrame.Protocol,
-                                newFrame.Saddr,
-                                newFrame.Daddr
+                                receivedFrame.Identification,
+                                receivedFrame.Flags,
+                                receivedFrame.FragmentOffset,
+                                receivedFrame.TTL,
+                                receivedFrame.Protocol,
+                                receivedFrame.Saddr,
+                                receivedFrame.Daddr
                                 );
 
                     foreach (var buffer in ListBufferWorkers)
                     {
                         buffer.PushDatagramToProcessOnLayer2(datagramToSend);
-
                     }
 
                     break;
                 case Layer3Protocol.Tcp:
-
-                    break;
                 case Layer3Protocol.Udp:
 
+                    WriteLog("Received " + (receivedFrame.Protocol == 6 ? "TCP" : "UDP"));
+
+                    // Send further
+                    if (receivedFrame.Daddr != _unit.Index)
+                    {
+                        GetBufferWorker(_layer3p.GetNextRoutingTo(receivedFrame.Daddr))
+                            .PushDatagramToProcessOnLayer2(
+                                _layer3p.PackData(
+                                    receivedFrame.Data,
+                                    _congestion,
+                                    receivedFrame.Identification,
+                                    receivedFrame.Flags,
+                                    receivedFrame.FragmentOffset,
+                                    receivedFrame.TTL,
+                                    receivedFrame.Protocol,
+                                    receivedFrame.Saddr,
+                                    receivedFrame.Daddr
+                                    )
+                             );
+
+                        WriteLog("Sent further");
+
+                        break;
+                    }
+
+
+                    // Process here
+                    var pseudoPacket = Layer4Protocol.PackPseudoHeader(
+                        receivedFrame.Saddr, receivedFrame.Daddr, receivedFrame.Protocol);
+
+                    pseudoPacket.AddRange(receivedFrame.Data);
+
+                    var answerDatagram = _layer4p.ProcessNewSegment(
+                        pseudoPacket
+                        );
+
+                    // if answer is not null then send
+                    if (answerDatagram == null)
+                        break;
+
+                    var destination = Layer4Protocol.GetPseudoDestination(answerDatagram);
+
+                    GetBufferWorker(_layer3p.GetNextRoutingTo(destination))
+                        .PushDatagramToProcessOnLayer2(
+                            _layer3p.PackData(
+                                answerDatagram.Skip(12).ToList(),
+                                _congestion,
+                                _layer3p.GetNextId(),
+                                2,
+                                0,
+                                100,
+                                Layer4Protocol.GetProtocolCode(answerDatagram),
+                                _unit.Index,
+                                destination
+                            ));
+
+                    WriteLog("Sent answer");
                     break;
                 default:
                     throw new Exception("BLAAAA WTFFFF");
@@ -301,11 +390,8 @@ namespace NetworksCeW.UnitWorkers
 
         private bool DatagramWasReceivedBefore(Layer3ProtocolDatagramInstance inst)
         {
-            foreach (var datagram in _listOfRecAndSentDatagrams)
-            {
-                if (datagram.EqualHashCode(inst.Identification, inst.Saddr, inst.Daddr)) return true;
-            }
-            return false;
+            return _listOfRecAndSentDatagrams.Any(
+                datagram => datagram.EqualHashCode(inst.Identification, inst.Saddr, inst.Daddr));
         }
 
         /// <summary>
