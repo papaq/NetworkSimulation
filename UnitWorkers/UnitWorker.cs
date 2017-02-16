@@ -116,6 +116,12 @@ namespace NetworksCeW.UnitWorkers
             }
         }
 
+        /// <summary>
+        /// Use by terminal to push message to send
+        /// </summary>
+        /// <param name="protocol"></param>
+        /// <param name="data"></param>
+        /// <param name="toUnit"></param>
         public void SendMessage(byte protocol, List<byte> data, byte toUnit)
         {
             if (_unitWorker.IsAlive)
@@ -141,7 +147,12 @@ namespace NetworksCeW.UnitWorkers
                 if (DateTime.Now.Subtract(lastUpdated).TotalSeconds > 1)
                 {
                     foreach (var buff in ListBufferWorkers)
-                        _myTerminal.UpdateBufferState(buff.EndUnitIndex, buff.CountBufferBusy());
+                        _myTerminal.UpdateBufferSent(
+                            buff.EndUnitIndex, 
+                            buff.NumberOfSentFrames, 
+                            buff.NumberOfBytesSent,
+                            buff.NumberOfBytesResent
+                            );
 
                     RemoveOldDatagrams();
 

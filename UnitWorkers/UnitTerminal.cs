@@ -42,12 +42,14 @@ namespace NetworksCeW.UnitWorkers
             _terminal.Update();
         }
 
-        public void UpdateBufferState(int toUnit, byte busy)
+        public void UpdateBufferSent(int toUnit, int sentFrames, int sentBytes, int resentBytes)
         {
             _terminal.UpdateItem(new BufferBusy()
             {
                 ToUnit = toUnit,
-                Utilization = busy.ToString() + "%"
+                Frames = sentFrames,
+                BytesSent = sentBytes,
+                BytesResent = resentBytes
             });
         }
 

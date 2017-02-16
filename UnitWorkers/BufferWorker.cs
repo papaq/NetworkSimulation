@@ -75,10 +75,12 @@ namespace NetworksCeW.UnitWorkers
 
         private const int DEFAULT_BIT_RATE = 37800;
         private readonly int _myBitRate;
+        private readonly int _myBitRateIndex;
 
         private const int TIMEOUT = 500;
         private const byte WINDOW = 10;
         private byte _windowLeft = 10;
+        private int _spoilMaximum;
 
         private readonly int _bufferSize;
         private int _bufferLeft;
@@ -88,6 +90,10 @@ namespace NetworksCeW.UnitWorkers
         private readonly bool _chanAsync;
 
         private DateTime _tryAgain;
+
+        public int NumberOfSentFrames { get; private set; }
+        public int NumberOfBytesSent { get; private set; }
+        public int NumberOfBytesResent { get; private set; }
 
         // kostyl
         private bool _markerInUse;
@@ -101,7 +107,7 @@ namespace NetworksCeW.UnitWorkers
         private readonly object _lockInQueue, _lockLayer3InQueue, _lockLayer3OutQueue;
 
 
-        public BufferWorker(int connectionNum, UnitTerminal terminal, int bufferSize)
+        public BufferWorker(int connectionNum, UnitTerminal terminal, int bufferSize, int spoilMaximum = 100)
         {
             var connection = Windows.MainWindow.ListOfBinds.Find(bind => bind.Index == connectionNum);
             _chanAsync = connection.Duplex;
@@ -110,7 +116,9 @@ namespace NetworksCeW.UnitWorkers
             EndUnitIndex = connection.GetSecondUnitIndex(terminal.UnitInst.Index);
             _thisUnitIndex = _myTerminal.UnitInst.Index;
 
-            _myBitRate = DEFAULT_BIT_RATE / connection.Weight;
+            _myBitRateIndex = connection.Weight;
+            _myBitRate = DEFAULT_BIT_RATE / _myBitRateIndex;
+            _spoilMaximum = spoilMaximum;
             
             _layer2p = new Layer2Protocol();
 
@@ -146,12 +154,7 @@ namespace NetworksCeW.UnitWorkers
         {
             _bufferWorker.Abort();
         }
-
-        public byte CountBufferBusy()
-        {
-            return (byte) ((_bufferSize - _bufferLeft) * 100 / _bufferSize);
-        }
-
+        
         /// <summary>
         /// Write log into
         /// unit's terminal
@@ -200,8 +203,34 @@ namespace NetworksCeW.UnitWorkers
                 return;
             }
 
+            NumberOfSentFrames++;
+            NumberOfBytesSent += frame.Count;
             _myTerminal.PutAnimatedMessage(_thisUnitIndex, EndUnitIndex);
+
+            // Spoil frame (or not)
+            if (frame.Count > 7)
+                SpoilFrame(frame);
+
             _endPointWorker?.PutFrameToThisBuffer(frame);
+        }
+
+        private int SpoilByteIndex(int length)
+        {
+            if (_rnd.Next(_spoilMaximum) <= _myBitRateIndex)
+            {
+                return _rnd.Next(1, length - 2);
+            }
+            return -1;
+        }
+
+        private void SpoilFrame(List<byte> frame)
+        {
+            // Try to spoil message
+            var spoilIndex = SpoilByteIndex(frame.Count);
+            if (spoilIndex != -1)
+            {
+                frame[spoilIndex] = (byte)((frame[spoilIndex] + 3) % 255);
+            }
         }
 
         /// <summary>
@@ -283,7 +312,6 @@ namespace NetworksCeW.UnitWorkers
         #endregion
 
         
-
         private void WorkerHDuplex()
         {
             // Features:
@@ -392,6 +420,9 @@ namespace NetworksCeW.UnitWorkers
                                 ReactToFrameHD(PullNextIncomingFrame());
 
                                 if (_sentFrames.Count <= 0) continue;
+
+                                // Count frames to resend
+                                IncreaseResentBytes(_sentFrames.Sum(fr => fr.Frame.Count));
 
                                 // Resend if there was still no response
                                 _toSendFrames.Insert(0, _sentFrames[_sentFrames.Count - 1]);
@@ -521,7 +552,11 @@ namespace NetworksCeW.UnitWorkers
                         {
 
                             WriteLog("not confirmed:" + _sentFrames.Count);
-                            
+
+
+                            // Count frames to resend
+                            IncreaseResentBytes(_sentFrames.Sum(fr => fr.Frame.Count));
+
                             // Put left sent frames back in _toSendList
                             _toSendFrames.InsertRange(0, _sentFrames);
                             
@@ -638,11 +673,22 @@ namespace NetworksCeW.UnitWorkers
             }
         }
 
+
+        private void IncreaseResentBytes(int count)
+        {
+            NumberOfBytesResent += count;
+        }
+
+
         /// <summary>
         /// Resend all frames, that are still not confirmed
         /// </summary>
         private void ResendAllSentFrames()
         {
+
+            // Count frames to resend
+            IncreaseResentBytes(_sentFrames.Sum(fr => fr.Frame.Count));
+
             // Resend frames as soon as possible
             int indexAfterAck = 0;
             foreach (var frame in _toSendFrames)

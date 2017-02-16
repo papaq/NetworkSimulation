@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:NetworksCeW.Windows"
         mc:Ignorable="d"
-        Title="Terminal" Height="335" Width="330" MinWidth="330" MinHeight="335">
+        Title="Terminal" Height="335" Width="340" MinWidth="340" MinHeight="335">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="50"/>
@@ -31,8 +31,10 @@
                                             <Setter Property="IsEnabled" Value="False"/>
                                         </Style>
                                     </GridView.ColumnHeaderContainerStyle>
-                                    <GridViewColumn Header="To Unit" Width="70" DisplayMemberBinding="{Binding ToUnit}" />
-                                    <GridViewColumn Header="Utilization" Width="100" DisplayMemberBinding="{Binding Utilization}" />
+                                    <GridViewColumn Header="To Unit" Width="42" DisplayMemberBinding="{Binding ToUnit}" />
+                                    <GridViewColumn Header="Frames" Width="50" DisplayMemberBinding="{Binding Frames}" />
+                                    <GridViewColumn Header="Sent bytes" Width="85" DisplayMemberBinding="{Binding BytesSent}" />
+                                    <GridViewColumn Header="Resent bytes" Width="80" DisplayMemberBinding="{Binding BytesResent}" />
                                 </GridView>
                             </ListView.View>
                         </ListView>

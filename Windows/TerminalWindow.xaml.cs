@@ -1,16 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
 using NetworksCeW.Structures;
 using NetworksCeW.UnitWorkers;
 
@@ -31,16 +22,19 @@ namespace NetworksCeW.Windows
     public class BufferBusy
     {
         public int ToUnit { get; set; }
-        public string Utilization { get; set; }
+        public int Frames { get; set; }
+        public int BytesSent { get; set; }
+        public int BytesResent { get; set; }
+
     }
 
     /// <summary>
     /// Interaction logic for TerminalWindow.xaml
     /// </summary>
-    public partial class TerminalWindow : Window
+    public partial class TerminalWindow
     {
         private Unit _unit;
-        private List<BufferBusy> _listOfBuffers;
+        private readonly List<BufferBusy> _listOfBuffers;
         private readonly UnitWorker _unitWorker;
 
         public TerminalWindow()
@@ -64,14 +58,17 @@ namespace NetworksCeW.Windows
 
         public void UpdateItem(BufferBusy item)
         {
-            if (_listOfBuffers.Exists(t => t.ToUnit == item.ToUnit))
-            {
-                _listOfBuffers.Find(t => t.ToUnit == item.ToUnit).Utilization = item.Utilization;
-            }
-            else
+            if (!_listOfBuffers.Exists(t => t.ToUnit == item.ToUnit))
             {
                 AddItem(item);
             }
+
+            var buffRecord = _listOfBuffers.Find(t => t.ToUnit == item.ToUnit);
+
+            buffRecord.Frames = item.Frames;
+            buffRecord.BytesSent = item.BytesSent;
+            buffRecord.BytesResent = item.BytesResent;
+
             UpdateListOfBuffers();
         }
 
@@ -96,12 +93,14 @@ namespace NetworksCeW.Windows
                 var toUnit = MainWindow.ListOfBinds.Find(
                         bind => bind.Index == index
                         ).GetSecondUnitIndex(_unit.Index);
+                var buffRecord = listOfBuffers.Find(item => item.ToUnit == toUnit);
+
                 AddItem(new BufferBusy()
                 {
                     ToUnit = toUnit,
-                    Utilization = listOfBuffers.Exists(item => item.ToUnit == toUnit) 
-                    ? listOfBuffers.Find(item => item.ToUnit == toUnit).Utilization
-                    : "0%"
+                    Frames = buffRecord?.Frames ?? 0,
+                    BytesSent = buffRecord?.BytesSent ?? 0,
+                    BytesResent = buffRecord?.BytesResent ?? 0
                 });
             }
 
