@@ -176,6 +176,11 @@ namespace NetworksCeW.UnitWorkers
                     _myTerminal.UpdateDestinations(_layer3p.GetDestinations());
 
                     secondsPassed = 0;
+
+                    // Remove all closed channels
+                    _layer4p.RemoveClosedConnections();
+
+
                 }
 
                 // Process to push upper or resend one new datagram from each buffer
@@ -206,7 +211,26 @@ namespace NetworksCeW.UnitWorkers
                     WriteLog("Resent packet");
                 }
 
+                // Send next UDP datagram
+                var nextUdp = _layer4p.GetNewUdpPacketToSend();
+                if (nextUdp != null)
+                {
+                    var buffer = GetBufferWorker(Layer4Protocol.GetPseudoDestination(nextUdp));
+                    buffer.PushDatagramToProcessOnLayer2(
+                            _layer3p.PackData(
+                                nextUdp.Skip(12).ToList(),
+                                _congestion,
+                                _layer3p.GetNextId(),
+                                2,
+                                0,
+                                100,
+                                Layer4Protocol.GetProtocolCode(nextUdp),
+                                _unit.Index,
+                                Layer4Protocol.GetPseudoDestination(nextUdp)
+                            ));
 
+                    WriteLog("UDP sent");
+                }
 
                 // Send datagrams received from terminal or else
 

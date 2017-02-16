@@ -11,20 +11,23 @@ using NetworksCeW.Windows;
 
 namespace NetworksCeW.ProtocolLayers
 {
-    internal class BaseTCB
+    internal class BaseControlBlock
     {
+        private readonly UnitTerminal _myTerminal;
+
         protected byte FromUnitIndex { get; }
         protected byte ToUnitIndex { get; }
         protected int PortHere { get; }
         protected int PortThere { get; }
 
         
-        protected BaseTCB(byte unitFrom, byte unitTo, int portHere, int portThere)
+        protected BaseControlBlock(byte unitFrom, byte unitTo, int portHere, int portThere, UnitTerminal terminal)
         {
             FromUnitIndex = unitFrom;
             ToUnitIndex = unitTo;
             PortHere = portHere;
             PortThere = portThere;
+            _myTerminal = terminal;
         }
 
 
@@ -32,11 +35,21 @@ namespace NetworksCeW.ProtocolLayers
         {
             return (ToUnitIndex == toUnit && PortHere == portHere && PortThere == portThere);
         }
+
+        protected void Push()
+        {
+            WriteLog("Pushed");
+        }
+        private void WriteLog(string log)
+        {
+            _myTerminal.WriteLog(DateTime.Now,
+                "L4: " + log);
+        }
     }
 
-    internal class TransmissionControlBlock : BaseTCB
+    internal class TransmissionControlBlock : BaseControlBlock
     {
-        public enum Status
+        private enum Status
         {
             Listen,
             SynSend,
@@ -73,16 +86,14 @@ namespace NetworksCeW.ProtocolLayers
 
 
         private const int ResendTimeout = 200000;
-        
-        public Status TransmissionStatus { get; private set; }
+
+        private Status _transmissionStatus;
+        public bool IsClosed => _transmissionStatus == Status.Closing;
         public bool? Sender;
-        //private TCP _tcp;
 
         private int _nextSendSequence, _nextReceivedSequence;
 
-
-        public bool MustBeDeleted { get; }
-
+        
         public int NextToBeTransmited
         {
             get
@@ -98,10 +109,10 @@ namespace NetworksCeW.ProtocolLayers
         private readonly UnitTerminal _myTerminal;
 
         public TransmissionControlBlock(byte unitHere, byte unitThere, int portHere, int portThere, UnitTerminal terminal)
-            : base(unitHere, unitThere, portHere, portThere)
+            : base(unitHere, unitThere, portHere, portThere, terminal)
         {
             _myTerminal = terminal;
-            TransmissionStatus = Status.Listen;
+            _transmissionStatus = Status.Listen;
             _sentSegments = new List<SentSegment>();
         }
 
@@ -123,12 +134,12 @@ namespace NetworksCeW.ProtocolLayers
                 toResend.Data.Count > 20 ? toResend.Data.Skip(20).ToList() : null,
                 toResend.DataOffset,
                 _nextReceivedSequence,
-                ack: TransmissionStatus == Status.SynSend, 
+                ack: _transmissionStatus == Status.SynSend, 
                 psh: _segments.Count == 0, 
-                syn: TransmissionStatus == Status.SynSend 
-                    || TransmissionStatus == Status.SynReceived, 
-                fin: TransmissionStatus == Status.FinWait
-                || TransmissionStatus == Status.CloseWait
+                syn: _transmissionStatus == Status.SynSend 
+                    || _transmissionStatus == Status.SynReceived, 
+                fin: _transmissionStatus == Status.FinWait
+                || _transmissionStatus == Status.CloseWait
             );
 
             // Resend
@@ -172,7 +183,7 @@ namespace NetworksCeW.ProtocolLayers
             Sender = true; /////////////////////////////////////////////////////////////////////////////////
 
             // Return SYN to init channel
-            TransmissionStatus = Status.SynSend;
+            _transmissionStatus = Status.SynSend;
 
             // Actually, the segment won't be sent by this thread
             // that is why it is marked with 0 timeout to be resent
@@ -222,7 +233,7 @@ namespace NetworksCeW.ProtocolLayers
 
 
             // Change status
-            TransmissionStatus = Status.SynReceived;
+            _transmissionStatus = Status.SynReceived;
 
             return returnPacket;
         }
@@ -233,7 +244,7 @@ namespace NetworksCeW.ProtocolLayers
 
             if (_nextReceivedSequence != unpacked.SequenceNum)
             {
-                switch (TransmissionStatus)
+                switch (_transmissionStatus)
                 {
 
                     // Check if SYN, then ReceiveFirstPacket
@@ -258,7 +269,7 @@ namespace NetworksCeW.ProtocolLayers
                         if (unpacked.SequenceNum != _nextReceivedSequence + 1)
                             return null;
 
-                        TransmissionStatus = Status.Established;
+                        _transmissionStatus = Status.Established;
                         break;
 
                     // Ack last received packet
@@ -291,7 +302,7 @@ namespace NetworksCeW.ProtocolLayers
             }
 
 
-            switch (TransmissionStatus)
+            switch (_transmissionStatus)
             {
                 case Status.SynSend:
 
@@ -303,7 +314,7 @@ namespace NetworksCeW.ProtocolLayers
                         // Start to send info !!!!!!!!!!!!!!!!!!!!!!!!!!!!
                         // Send first segment with ACK 
 
-                        TransmissionStatus = Status.Established;
+                        _transmissionStatus = Status.Established;
 
                         _sentSegments.Clear();
 
@@ -331,7 +342,7 @@ namespace NetworksCeW.ProtocolLayers
                         // - change status
                         // - Inc nextReceiveSequence
                         // - return null
-                        TransmissionStatus = Status.Established;
+                        _transmissionStatus = Status.Established;
 
                         if (unpacked.Data != null)
                         {
@@ -396,7 +407,7 @@ namespace NetworksCeW.ProtocolLayers
                             );
 
                             // Change status
-                            TransmissionStatus = Status.FinWait;
+                            _transmissionStatus = Status.FinWait;
 
                             return returnPacket;
                         }
@@ -451,7 +462,7 @@ namespace NetworksCeW.ProtocolLayers
 
                         // Send FIN ACK
                         // Change status
-                        TransmissionStatus = Status.CloseWait;
+                        _transmissionStatus = Status.CloseWait;
                         _nextReceivedSequence = unpacked.SequenceNum + 1;
                         return MakePacketWithPseudoHeader(
                             null,
@@ -493,7 +504,7 @@ namespace NetworksCeW.ProtocolLayers
 
                         // Return Ack
                         // Change status
-                        TransmissionStatus = Status.Closing;
+                        _transmissionStatus = Status.Closing;
                         _nextReceivedSequence = unpacked.SequenceNum + 1;
                         return MakePacketWithPseudoHeader(
                             null,
@@ -513,7 +524,7 @@ namespace NetworksCeW.ProtocolLayers
                         // ACK for FIN received:
                         // - change status
                         // - return null
-                        TransmissionStatus = Status.Closing;
+                        _transmissionStatus = Status.Closing;
                         return null;
                     }
 
@@ -538,31 +549,11 @@ namespace NetworksCeW.ProtocolLayers
             return pseudoHeader;
         }
 
-        private void Push()
-        {
-            WriteLog("Pushed");
-        }
-
         #endregion
-
-        private void WriteLog(string log)
-        {
-            _myTerminal.WriteLog(DateTime.Now,
-                "L4: " + log);
-        }
     }
 
     internal class TcpInstance
     {
-        /*
-        public byte AddrSource { get; }
-        public byte AddrDest { get; }
-        
-
-        public int PortSource { get; }
-        public int PortDest { get; }
-        */
-
         public int SequenceNum { get; }
         public int AcknowledgementNum { get; }
         public int Window { get; }
@@ -577,17 +568,6 @@ namespace NetworksCeW.ProtocolLayers
 
         public TcpInstance(List<byte> packet)
         {
-            /*
-            AddrSource = TCP.GetPseudoSource(Pseudopacket);
-            AddrDest = TCP.GetPseudoDestination(Pseudopacket);
-
-            var packet = Pseudopacket.Skip(12).ToList();
-            
-
-            PortSource = TCP.GetPortSource(packet);
-            PortDest = TCP.GetPseudoDestination(packet);
-            */
-
             SequenceNum = TCP.GetSequenceNumber(packet);
             AcknowledgementNum = TCP.GetAcknowledge(packet);
             CheckSum = TCP.GetCheckSum(packet);
@@ -599,6 +579,124 @@ namespace NetworksCeW.ProtocolLayers
             Fin = TCP.GetFIN(packet);
 
             Data = packet.Skip(20).ToList();
+        }
+    }
+
+    internal class HostControlBlock : BaseControlBlock
+    {
+        private enum Status
+        {
+            Opened,
+            Sender,
+            Receiver,
+            Closed
+        }
+        
+        private UnitTerminal _myTerminal;
+
+        private readonly List<List<byte>> _segments;
+
+        private Status _currentStatus;
+
+        public bool ToBeDeleted => _currentStatus == Status.Closed;
+        public bool isReceiver => _currentStatus == Status.Receiver;
+        public bool isSender => _currentStatus == Status.Sender;
+
+        public HostControlBlock(byte unitHere, byte unitThere, int portHere, int portThere, UnitTerminal terminal)
+            : base(unitHere, unitThere, portHere, portThere, terminal)
+        {
+            _myTerminal = terminal;
+            _segments = new List<List<byte>>();
+            _currentStatus = Status.Opened;
+        }
+
+        // To make it Sender
+
+        #region Sender part
+
+        public void PushDataToSend(List<byte> data)
+        {
+            _currentStatus = Status.Sender;
+
+            if (data == null)
+            {
+                _currentStatus = Status.Closed;
+                return;
+            }
+
+            while (data.Count != 0)
+            {
+                if (data.Count > UDP.MSL)
+                {
+                    _segments.Add(data.GetRange(0, UDP.MSL));
+                    data.RemoveRange(0, UDP.MSL);
+                }
+                else
+                {
+                    _segments.Add(data.GetRange(0, data.Count));
+                    data.Clear();
+                }
+            }
+        }
+
+        public List<byte> GetNextPacket()
+        {
+            if (_segments.Count == 1)
+            {
+                _currentStatus = Status.Closed;
+            }
+
+            var packetData = _segments[0];
+            _segments.RemoveAt(0);
+
+            return MakePacketWithPseudoHeader(packetData);
+        }
+
+        private List<byte> MakePacketWithPseudoHeader(List<byte> data)
+        {
+            var pseudoHeader = Layer4Protocol.PackPseudoHeader(FromUnitIndex, ToUnitIndex, UDP.UdpCode);
+            pseudoHeader.AddRange(
+                UDP.PackData(data, PortHere, PortThere));
+            return pseudoHeader;
+        }
+
+        #endregion
+
+
+        #region Receiver part
+
+        public void ReactToPacket(List<byte> packet)
+        {
+            var udpInst = new UdpInstance(packet);
+            if (udpInst.Length == 0)
+            {
+                return;
+            }
+
+            Push();
+        }
+
+        #endregion
+    }
+
+    internal class UdpInstance
+    {
+        public int Length { get; }
+        public int CheckSum { get; }
+
+        public List<byte> Data { get; }
+
+        public UdpInstance(List<byte> packet)
+        {
+            CheckSum = UDP.GetChecksum(packet);
+            packet[6] = 0;
+            packet[7] = 0;
+
+            Length = UDP.CountChecksum(packet) == CheckSum
+                ? UDP.GetLength(packet)
+                : 0;
+            
+            Data = packet.Skip(8).ToList();
         }
     }
 
@@ -772,20 +870,106 @@ namespace NetworksCeW.ProtocolLayers
         #endregion
     }
 
-    internal class UDP
+    internal class UDP : ProtocolInitialManipulations
     {
         public const byte UdpCode = 17;
+
+        public const int MSL = 1492;
+
+        #region Put header fields
+
+        private static List<byte> PutPort(int port)
+        {
+            return Make2BytesFromInt(port);
+        }
+
+        private static List<byte> PutLength(int length)
+        {
+            return Make2BytesFromInt(length);
+        }
+
+        private static List<byte> PutChecksum(int checksum)
+        {
+            return Make2BytesFromInt(checksum);
+        }
+
+        public static int CountChecksum(List<byte> packet)
+        {
+            var checkSum = packet.Aggregate(0, (current, b) => current + b);
+
+            checkSum = ShiftLeft(GetFourthByte(checkSum), 8) +
+                       GetThirdByte(checkSum) + (checkSum & 0xFFF0000);
+            return 0xFFFF - checkSum;
+        }
+
+        #endregion
+
+
+        #region Get header fields
+
+        public static int GetPortSource(List<byte> packet)
+        {
+            return MakeIntFromBytes(packet.Take(2).ToList());
+        }
+
+        public static int GetPortDestination(List<byte> packet)
+        {
+            return MakeIntFromBytes(packet.Skip(2).Take(2).ToList());
+        }
+
+        public static int GetLength(List<byte> packet)
+        {
+            return MakeIntFromBytes(packet.Skip(4).Take(2).ToList());
+        }
+
+        public static int GetChecksum(List<byte> packet)
+        {
+            return MakeIntFromBytes(packet.Skip(6).Take(2).ToList());
+        }
+
+        #endregion
+
+
+        #region Global needs
+
+        public static List<byte> PackData(
+            List<byte> data,
+            int portS, int portD
+        )
+        {
+
+            // Pack according to fields
+            var header = new List<byte>();
+            header.AddRange(PutPort(portS));
+            header.AddRange(PutPort(portD));
+            
+            header.AddRange(PutLength((data?.Count ?? 0) + 8));
+
+            if (data != null)
+            {
+                header.AddRange(data);
+            }
+
+            header.InsertRange(6, PutChecksum(CountChecksum(header)));
+
+            return header;
+        }
+
+        #endregion
+
     }
 
     internal class Layer4Protocol
     {
         private readonly byte _myUnitIndex;
-        private List<TransmissionControlBlock> _allActiveTransmissions;
+        private readonly List<TransmissionControlBlock> _allActiveTransmissions;
+        private readonly List<HostControlBlock> _allActiveHosts;
         private readonly UnitTerminal _terminal;
 
         public Layer4Protocol(byte unitId, UnitTerminal terminal)
         {
             _allActiveTransmissions = new List<TransmissionControlBlock>();
+            _allActiveHosts = new List<HostControlBlock>();
             _myUnitIndex = unitId;
             _terminal = terminal;
         }
@@ -812,6 +996,23 @@ namespace NetworksCeW.ProtocolLayers
             _allActiveTransmissions.Add(tcb);
         }
 
+        private void PushDataToSendWithUDP(List<byte> data, byte toUnit)
+        {
+            var rnd = new Random();
+            var portHere = rnd.Next(1, 0xFFF);
+            var portThere = rnd.Next(1, 0xFFA);
+
+            var hcb = new HostControlBlock(
+                _myUnitIndex, toUnit,
+                portHere, portThere,
+                _terminal
+                );
+
+            hcb.PushDataToSend(data);
+
+            _allActiveHosts.Add(hcb);
+        }
+
         public void PushMessageToSend(byte protocol, List<byte> data, byte toUnit)
         {
             switch (protocol)
@@ -824,7 +1025,7 @@ namespace NetworksCeW.ProtocolLayers
                 case 17:
 
                     // It is UDP
-
+                    PushDataToSendWithUDP(data, toUnit);
                     break;
 
                 default:
@@ -834,15 +1035,20 @@ namespace NetworksCeW.ProtocolLayers
 
         public List<byte> ProcessNewSegment(List<byte> pseudoPacket)
         {
+
+            byte addrOther = GetPseudoSource(pseudoPacket);
+            List<byte> packet;
+            int portHere, portOther;
+
+
             switch (GetProtocolCode(pseudoPacket))
             {
                 case 6:
 
                     // It is TCP
-                    var addrOther = GetPseudoSource(pseudoPacket);
-                    var packet = pseudoPacket.Skip(12).ToList();
-                    var portOther = TCP.GetPortSource(packet);
-                    var portHere = TCP.GetPortDestination(packet);
+                    packet = pseudoPacket.Skip(12).ToList();
+                    portOther = TCP.GetPortSource(packet);
+                    portHere = TCP.GetPortDestination(packet);
 
                     var tcbIndex = _allActiveTransmissions.FindIndex(
                         block => block.IsEqual(addrOther, portHere, portOther));
@@ -865,8 +1071,28 @@ namespace NetworksCeW.ProtocolLayers
                 case 17:
 
                     // It is UDP
+                    packet = pseudoPacket.Skip(12).ToList();
+                    portOther = UDP.GetPortSource(packet);
+                    portHere = UDP.GetPortDestination(packet);
 
+                    var hcbIndex = _allActiveHosts.FindIndex(
+                        host => host.IsEqual(addrOther, portHere, portOther));
+                    if (hcbIndex < 0)
+                    {
+                        // New connection
+                        var newHcb = new HostControlBlock(_myUnitIndex, addrOther, portHere, portOther, _terminal);
+
+                        // Push incoming packet without pseudo header
+                        newHcb.ReactToPacket(packet);
+
+                        _allActiveHosts.Add(newHcb);
+                        return null;
+                    }
+
+                    // Connection exists
+                    _allActiveHosts[hcbIndex].ReactToPacket(packet);
                     return null;
+
                 default:
                     throw new Exception("Unknown protocol!");
             }
@@ -879,6 +1105,16 @@ namespace NetworksCeW.ProtocolLayers
                 ).FirstOrDefault(packet => packet != null);
         }
 
+        public List<byte> GetNewUdpPacketToSend()
+        {
+            return (from hcb in _allActiveHosts where hcb.isSender select hcb.GetNextPacket()).FirstOrDefault();
+        }
+
+        public void RemoveClosedConnections()
+        {
+            _allActiveTransmissions.RemoveAll(tcb => tcb.IsClosed);
+            _allActiveHosts.RemoveAll(hcb => hcb.ToBeDeleted);
+        }
 
         #region Manage pseudo header
 
