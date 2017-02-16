@@ -250,31 +250,7 @@
                         </ListView>
                     </Grid>
                 </TabItem>
-                <TabItem BorderBrush="Black" Background="White" Header="Directions">
-                    <Grid Margin="0">
-                        <ListView x:Name="ListViewRoutes" Margin="0,60,0,0" BorderThickness="0" IsHitTestVisible="True">
-                            <ListView.View>
-                                <GridView AllowsColumnReorder="False">
-                                    <GridView.ColumnHeaderContainerStyle>
-                                        <Style TargetType="{x:Type GridViewColumnHeader}">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                        </Style>
-                                    </GridView.ColumnHeaderContainerStyle>
-                                    <GridViewColumn Header="To" Width="40" DisplayMemberBinding="{Binding To}" />
-                                    <GridViewColumn Header="Ridx" Width="60" DisplayMemberBinding="{Binding Index}" />
-                                    <GridViewColumn Header="Next" Width="40" DisplayMemberBinding="{Binding Next}" />
-                                    <GridViewColumn Header="Weight" Width="50" DisplayMemberBinding="{Binding Weight}" />
-                                    <GridViewColumn Header="Stops" Width="40" DisplayMemberBinding="{Binding Stops}" />
-                                </GridView>
-                            </ListView.View>
-                        </ListView>
-                        <TextBox x:Name="TextBoxUnitIdx" Height="30" Margin="10,10,0,0" TextWrapping="Wrap" Text="To unit" Width="70" FontSize="17.333" HorizontalAlignment="Left" BorderBrush="White" AllowDrop="False" Focusable="False" IsHitTestVisible="False" HorizontalContentAlignment="Center" VerticalAlignment="Top" VerticalContentAlignment="Center" FontFamily="Sylfaen" FontWeight="Bold"/>
-                        <ComboBox x:Name="ComboChooseToUnit" HorizontalAlignment="Left" Height="31" Margin="85,10,0,0" VerticalAlignment="Top" Width="55" Focusable="False" FontSize="15" SelectedIndex="0" IsTabStop="False" IsTextSearchEnabled="False" SelectionChanged="ComboChooseToUnit_SelectionChanged" Panel.ZIndex="2" MinWidth="55" >
-                            <ComboBoxItem Content="All" FontSize="15" Focusable="False" IsHitTestVisible="True" IsTabStop="False"/>
-                        </ComboBox>
-                    </Grid>
-                </TabItem>
-                <TabItem Header="TabItem" BorderBrush="Black">
+                <TabItem Header="Start" BorderBrush="Black">
                     <TabItem.Background>
                         <LinearGradientBrush EndPoint="0,1" StartPoint="0,0">
                             <GradientStop Color="#FFF0F0F0" Offset="0"/>
@@ -285,30 +261,9 @@
                         <Button Name="ButtonStartCasey" Width="56" BorderThickness="4" BorderBrush="#FFFF0074" Height="40" Content="Start" Click="ButtonStartCasey_Click"/>
                     </Grid>
                 </TabItem>
-                <TabItem Header="Test" BorderBrush="#FFFF0074" BorderThickness="3">
-                    <TabItem.Background>
-                        <LinearGradientBrush EndPoint="0,1" StartPoint="0,0">
-                            <GradientStop Color="#FFF0F0F0" Offset="0"/>
-                            <GradientStop Color="White" Offset="1"/>
-                        </LinearGradientBrush>
-                    </TabItem.Background>
-                    <Grid HorizontalAlignment="Left" Width="184" Margin="10,0,0,5">
-                        <Label x:Name="label" Content="Label" HorizontalAlignment="Left" Margin="17,0,0,36" VerticalAlignment="Bottom" Width="85" Padding="0" ScrollViewer.CanContentScroll="True" Height="15"/>
-                        <Label x:Name="label1" Content="Label" HorizontalAlignment="Left" Margin="17,0,0,10" VerticalAlignment="Bottom" RenderTransformOrigin="-0.186,0.581" Width="85" Height="26"/>
-                        <Label x:Name="labelUnit" Content="UNIT" HorizontalAlignment="Left" Margin="15,148,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="44" Height="26"/>
-                        <Label x:Name="labelBinding" Content="BINDING" HorizontalAlignment="Left" Margin="15,179,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="50" Height="25"/>
-                        <Label x:Name="labelUnits" Content="UNITS" HorizontalAlignment="Left" Margin="90,7,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="37" Height="25"/>
-                        <Label x:Name="labelBindings" Content="BINDINGS" HorizontalAlignment="Left" Margin="90,25,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="64" Height="25"/>
-                        <Label x:Name="labelLines" Content="LINES" HorizontalAlignment="Left" Margin="90,42,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="34" Height="25"/>
-                        <Label x:Name="labelGrids" Content="GRIDS" HorizontalAlignment="Left" Margin="90,62,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="37" Height="25"/>
-                        <Label x:Name="labelUnits_Copy" Content="UNITS" HorizontalAlignment="Left" Margin="13,7,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="37" Height="25"/>
-                        <Label x:Name="labelBindings_Copy" Content="BINDINGS" HorizontalAlignment="Left" Margin="11,25,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="66" Height="25"/>
-                        <Label x:Name="labelGrids_Copy" Content="GRIDS" HorizontalAlignment="Left" Margin="12,62,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="37" Height="25"/>
-                        <Label x:Name="labelLines_Copy" Content="LINES" HorizontalAlignment="Left" Margin="12,42,0,0" VerticalAlignment="Top" RenderTransformOrigin="-0.186,0.581" Width="34" Height="25"/>
-                        <Label x:Name="labelLeftClick" Content="LeftClick" Margin="27,209,95,92"/>
-                        <Label x:Name="labelMoveItem" Content="MoveItem" Margin="27,222,95,79"/>
-                        <Label x:Name="labelUnitEnter" Content="UnitEnter" Margin="27,235,95,66"/>
-                        <Button x:Name="button" Content="Button" Margin="128,290,10,10" Click="button_Click"/>
+                <TabItem BorderBrush="Black" Background="White" Header="Directions">
+                    <Grid Margin="0">
+                        
                     </Grid>
                 </TabItem>
             </TabControl>

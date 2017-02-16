@@ -49,7 +49,9 @@ namespace NetworksCeW.UnitWorkers
         private readonly UnitTerminal _myTerminal;
         private readonly List<UnitTerminal> _listOfTerminals;
 
-        private byte _congestion = 1;    //////////////////////////////
+        private bool _exitNow;
+
+        private byte _congestion = 1; 
 
         // Protocols' instances
         private readonly Layer3Protocol _layer3p;

@@ -316,8 +316,6 @@ namespace NetworksCeW.UnitWorkers
             while (true)
             {
 
-                //_nextFrameRec = 1;
-
                 // S C E N A R I O   1:
 
 

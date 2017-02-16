@@ -809,14 +809,7 @@ namespace NetworksCeW.Windows
             _enterUnit = FindCircleInside(currentPosition);
             _enterLine = FindLineClose(currentPosition);
 
-            // Moving Units
-
-            /* Test */
-            labelLeftClick.Content = _leftClickUnit;
-            labelMoveItem.Content = _moveItem;
-            labelUnitEnter.Content = _enterUnit;
-
-
+            
             if (_moveItem != -1 && _listOfUnits.Count > 0)
             {
                 var unit = _listOfUnits[_moveItem];
@@ -843,23 +836,7 @@ namespace NetworksCeW.Windows
                         bind.TurnLine(line, oldPosition, currentPosition);
                 }
             }
-
-
-            // <-- 
-            // T E S T
-
-            labelBinding.Content = _enterLine;
-            labelUnit.Content = _enterUnit;
-
-            label.Content = e.GetPosition(MainWindow1);
-
-            labelUnits.Content = _listOfUnits.Count;
-            labelBindings.Content = ListOfBinds.Count;
-            labelGrids.Content = _collectionOfUnitGrids.Count;
-            labelLines.Content = _collectionOfLines.Count;
-
-            // T E S T
-            // --!>
+            
 
             ChangeSelection();
         }
@@ -1373,174 +1350,14 @@ namespace NetworksCeW.Windows
 
         private void MainWindow1_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Key == Key.Delete)
-            {
-                label1.Content = "delete" + _leftClickUnit;
-                DeleteUnit(_leftClickUnit);
-                DeleteBinding(_leftClickLine);
-                UpdateInfoBox();
-            }
+            if (e.Key != Key.Delete) return;
+
+            DeleteUnit(_leftClickUnit);
+            DeleteBinding(_leftClickLine);
+            UpdateInfoBox();
         }
 
-
-
-        //  P O N E S L A S Ь
-
-
-        /*
-        private void CountRouts(int forUnitIndex)
-        {
-            _counterRecursion = 0;
-            _listOfRouteChoices.Clear();
-
-            //foreach (var fromUnit in _listOfUnits.Where(unit => !unit.Disabled))
-            //{
-
-            var fromUnit = _listOfUnits.Find(unit => unit.Index == forUnitIndex);
-
-            if (fromUnit.Disabled)
-            {
-                FillRouteInfo(-1);
-                return;
-            }
-
-            _listOfRouteChoices.Add(new YouCanGetThere(fromUnit.Index));
-            foreach (var toUnit in _listOfUnits.Where(toUnit => toUnit != fromUnit && !toUnit.Disabled))
-            {
-                _listOfRouteChoices.Last().Directions.Add(new Direction(toUnit.Index));
-                WalkThroughAllPaths(new List<int>() { fromUnit.Index }, 0, fromUnit, toUnit.Index);
-            }
-
-            //}
-        }
-
-        private void WalkThroughAllPaths(List<int> iWasThere, int tempWeight, Unit fromUnit, int toUnit)
-        {
-            if (iWasThere.Count > 15)
-                return;
-            foreach (var bindIndex in fromUnit.ListBindsIndexes)
-            {
-                _counterRecursion++;
-
-                var bind = _listOfBinds.Find(myBind => myBind.Index == bindIndex);
-                if (bind.Disabled) continue;
-
-                var unitIndex = bind.GetSecondUnitIndex(fromUnit.Index);
-
-                if (iWasThere.Contains(unitIndex)) continue;
-
-                var newListOfStops = new List<int>(iWasThere) { unitIndex };
-
-                if (unitIndex == toUnit)
-                {
-                    _listOfRouteChoices.Last().Directions.Last().Routes.Add(
-                        new Route(tempWeight + bind.Weight, newListOfStops));
-                    continue;
-                }
-
-                WalkThroughAllPaths(newListOfStops, tempWeight + bind.Weight,
-                    _listOfUnits.Find(unit => unit.Index == unitIndex), toUnit);
-            }
-        }
-        */
-        private void button_Click(object sender, RoutedEventArgs e)
-        {
-
-        }
-        /*
-        private void UpdateComboChooseToUnit()
-        {
-            if (_leftClickUnit == -1 || _listOfUnits.Count <= _leftClickUnit)
-            {
-                FillRouteInfo(-1);
-                return;
-            }
-
-            CountRouts(_listOfUnits[_leftClickUnit].Index);
-
-            var listOfToUnits = new List<string>();
-            ComboChooseToUnit.ItemsSource = null;
-            ComboChooseToUnit.Items.Clear();
-            listOfToUnits.Add("All");
-
-            var ListOfPrivateRoutes = _listOfRouteChoices.Find(
-                from => @from.FromUnitIndex == _listOfUnits[_leftClickUnit].Index);
-            if (ListOfPrivateRoutes != null)
-            {
-                var ListOfRoutesString = ListOfPrivateRoutes.Directions.Select(direction => direction.ToUnitIndex.ToString());
-                if (ListOfRoutesString != null)
-                {
-                    listOfToUnits.AddRange(ListOfRoutesString);
-
-                    ComboChooseToUnit.ItemsSource = listOfToUnits;
-                    ComboChooseToUnit.SelectedIndex = 0;
-                }
-            }            
-            
-            //FillRouteInfo(-1);
-        }
-
-        private void FillRouteInfo(int toUnit)
-        {
-            ListViewRoutes.ItemsSource = null;
-
-            if (!_listOfRouteChoices.Any() || _leftClickUnit == -1)
-                return;
-
-            var routeInfoLst = new List<RouteInfo>();
-
-            if (toUnit == -1)
-                foreach (var direction in _listOfRouteChoices.Find(
-                    from => from.FromUnitIndex == _listOfUnits[_leftClickUnit].Index).Directions)
-                    routeInfoLst.AddRange(FillRouteInfoLst(direction));
-            else
-                routeInfoLst.AddRange(FillRouteInfoLst(_listOfRouteChoices.Find(
-                    from => from.FromUnitIndex == _listOfUnits[_leftClickUnit].Index).Directions.Find(
-                    direction => direction.ToUnitIndex == toUnit)));
-
-
-            ListViewRoutes.ItemsSource = routeInfoLst;
-        }
-
-        private List<RouteInfo> FillRouteInfoLst(Direction direction)
-        {
-            var index = 0;
-            var routeInfoList = new List<RouteInfo>();
-
-            foreach (var route in direction.Routes)
-            {
-                routeInfoList.Add(new RouteInfo()
-                {
-                    Index = index.ToString(),
-                    To = direction.ToUnitIndex.ToString(),
-                    Next = route.ListOfStops[1].ToString(),
-                    Weight = route.RouteWeight.ToString(),
-                    Stops = (route.ListOfStops.Count - 1).ToString(),
-                });
-
-                index++;
-            }
-            return routeInfoList;
-        }
-        */
-        private void ComboChooseToUnit_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            /*
-            if (ComboChooseToUnit.ItemsSource == null)
-                return;
-
-            switch (ComboChooseToUnit.SelectedIndex)
-            {
-                case 0:
-                    FillRouteInfo(-1);
-                    break;
-                default:
-                    FillRouteInfo(Convert.ToInt16(ComboChooseToUnit.SelectedItem));
-                    break;
-            }
-            */
-        }
-
+        
         private void ButtonStartCasey_Click(object sender, RoutedEventArgs e)
         {
             ButtonStartCasey.IsEnabled = false;
@@ -1556,6 +1373,8 @@ namespace NetworksCeW.Windows
             {
                 terminal.AbortAll();
             }
+
+            Application.Current.Shutdown();
         }
     }
 
@@ -1565,19 +1384,4 @@ namespace NetworksCeW.Windows
 
         public string Value { get; set; }
     }
-
-    public class RouteInfo
-    {
-        public string Index { get; set; }
-
-        public string To { get; set; }
-
-        public string Next { get; set; }
-
-        public string Weight { get; set; }
-
-        public string Stops { get; set; }
-    }
-
-    
 }
