@@ -153,6 +153,10 @@
     <None Include="Resources\greyNtw.ico" />
   </ItemGroup>
   <ItemGroup>
+    <Resource Include="Resources\svas.png" />
+    <Resource Include="Resources\message.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Resource>
     <Content Include="Resources\pinkPlug.ico">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

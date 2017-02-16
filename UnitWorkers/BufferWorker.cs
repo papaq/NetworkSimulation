@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using NetworksCeW.ProtocolLayers;
+using NetworksCeW.Windows;
 
 namespace NetworksCeW.UnitWorkers
 {
@@ -59,7 +60,8 @@ namespace NetworksCeW.UnitWorkers
 
         #region Existing instances
 
-        public int EndUnitIndex;
+        public readonly int EndUnitIndex;
+        private readonly int _thisUnitIndex;
 
         private BufferWorker _endPointWorker;
 
@@ -106,6 +108,7 @@ namespace NetworksCeW.UnitWorkers
             _myTerminal = terminal;
             _bufferSize = _bufferLeft = bufferSize;
             EndUnitIndex = connection.GetSecondUnitIndex(terminal.UnitInst.Index);
+            _thisUnitIndex = _myTerminal.UnitInst.Index;
 
             _myBitRate = DEFAULT_BIT_RATE / connection.Weight;
             
@@ -191,9 +194,14 @@ namespace NetworksCeW.UnitWorkers
         /// <param name="frame"></param>
         private void PutFrameToAnotherBuffer(List<byte> frame)
         {
-            _endPointWorker?.PutFrameToThisBuffer(frame);
             if (_endPointWorker == null)
+            {
                 WorkerAbort();
+                return;
+            }
+
+            _myTerminal.PutAnimatedMessage(_thisUnitIndex, EndUnitIndex);
+            _endPointWorker?.PutFrameToThisBuffer(frame);
         }
 
         /// <summary>

@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Windows.Annotations;
 using NetworksCeW.ProtocolLayers;
 using NetworksCeW.Structures;
 
@@ -37,8 +35,7 @@ namespace NetworksCeW.UnitWorkers
             }
         }
 
-        private Dictionary<int, Dictionary<int, List<Layer3ProtocolDatagramInstance>>> _receivedPartsOfDatagrams;
-        private List<EarlierProcessedDatagram> _listOfRecAndSentDatagrams;
+        private readonly List<EarlierProcessedDatagram> _listOfRecAndSentDatagrams;
 
         public Queue<List<byte>> ListSendThis; /////////////////////////////
         public List<BufferWorker> ListBufferWorkers;
@@ -48,14 +45,12 @@ namespace NetworksCeW.UnitWorkers
 
         private readonly UnitTerminal _myTerminal;
         private readonly List<UnitTerminal> _listOfTerminals;
-
-        private bool _exitNow;
-
+        
         private byte _congestion = 1; 
 
         // Protocols' instances
-        private readonly Layer3Protocol _layer3p;
-        private readonly Layer4Protocol _layer4p;
+        private readonly Layer3Protocol _layer3P;
+        private readonly Layer4Protocol _layer4P;
 
         public UnitWorker(UnitTerminal terminal, List<UnitTerminal> listTerminals, Unit unit)
         {
@@ -63,9 +58,8 @@ namespace NetworksCeW.UnitWorkers
             _listOfTerminals = listTerminals;
             _unit = unit;
             ListBufferWorkers = new List<BufferWorker>();
-            _layer3p = new Layer3Protocol((byte)unit.Index);
-            _layer4p = new Layer4Protocol((byte)unit.Index, terminal);
-            _receivedPartsOfDatagrams = new Dictionary<int, Dictionary<int, List<Layer3ProtocolDatagramInstance>>>();
+            _layer3P = new Layer3Protocol((byte)unit.Index);
+            _layer4P = new Layer4Protocol((byte)unit.Index, terminal);
             _listOfRecAndSentDatagrams = new List<EarlierProcessedDatagram>();
         }
 
@@ -126,7 +120,7 @@ namespace NetworksCeW.UnitWorkers
         {
             if (_unitWorker.IsAlive)
             {
-                _layer4p.PushMessageToSend(protocol, data, toUnit);
+                _layer4P.PushMessageToSend(protocol, data, toUnit);
             }
         }
 
@@ -169,18 +163,18 @@ namespace NetworksCeW.UnitWorkers
                     }
 
                     // Push own status to topology
-                    _layer3p.UpdateUnitInformation(
+                    _layer3P.UpdateUnitInformation(
                         (byte)_unit.Index,
                         MakeListOfToUnitConnections()
                     );
 
-                    _layer3p.UpdateNetworkTopology();
-                    _myTerminal.UpdateDestinations(_layer3p.GetDestinations());
+                    _layer3P.UpdateNetworkTopology();
+                    _myTerminal.UpdateDestinations(_layer3P.GetDestinations());
 
                     secondsPassed = 0;
 
                     // Remove all closed channels
-                    _layer4p.RemoveClosedConnections();
+                    _layer4P.RemoveClosedConnections();
 
 
                 }
@@ -193,15 +187,15 @@ namespace NetworksCeW.UnitWorkers
 
 
                 // Resend packet after timeout
-                var resendDatagram = _layer4p.ResendPacketAfterTimeout();
+                var resendDatagram = _layer4P.ResendPacketAfterTimeout();
                 if (resendDatagram != null)
                 {
                     var buffer = GetBufferWorker(Layer4Protocol.GetPseudoDestination(resendDatagram));
                     buffer.PushDatagramToProcessOnLayer2(
-                            _layer3p.PackData(
+                            _layer3P.PackData(
                                 resendDatagram.Skip(12).ToList(),
                                 _congestion,
-                                _layer3p.GetNextId(),
+                                _layer3P.GetNextId(),
                                 2,
                                 0,
                                 100,
@@ -214,15 +208,15 @@ namespace NetworksCeW.UnitWorkers
                 }
 
                 // Send next UDP datagram
-                var nextUdp = _layer4p.GetNewUdpPacketToSend();
+                var nextUdp = _layer4P.GetNewUdpPacketToSend();
                 if (nextUdp != null)
                 {
                     var buffer = GetBufferWorker(Layer4Protocol.GetPseudoDestination(nextUdp));
                     buffer.PushDatagramToProcessOnLayer2(
-                            _layer3p.PackData(
+                            _layer3P.PackData(
                                 nextUdp.Skip(12).ToList(),
                                 _congestion,
-                                _layer3p.GetNextId(),
+                                _layer3P.GetNextId(),
                                 2,
                                 0,
                                 100,
@@ -250,11 +244,11 @@ namespace NetworksCeW.UnitWorkers
         /// </summary>
         private List<byte> MyStatusToDatagram()
         {
-            var newId = _layer3p.GetNextId();
+            var newId = _layer3P.GetNextId();
             AddDatagramToSeen(newId, (byte) _unit.Index, Layer3Protocol.Brdcst);
 
-            return _layer3p.PackData(
-                _layer3p.MakeStatusData(MakeListOfToUnitConnections()),
+            return _layer3P.PackData(
+                _layer3P.MakeStatusData(MakeListOfToUnitConnections()),
                 _congestion,
                 newId,
                 2,
@@ -267,7 +261,7 @@ namespace NetworksCeW.UnitWorkers
 
         private BufferWorker GetBufferWorker(byte toUnit)
         {
-            var nextUnit = _layer3p.GetNextRoutingTo(toUnit);
+            var nextUnit = _layer3P.GetNextRoutingTo(toUnit);
             return ListBufferWorkers.Find(buffer => buffer.EndUnitIndex == nextUnit);
         }
 
@@ -277,18 +271,14 @@ namespace NetworksCeW.UnitWorkers
         /// <returns></returns>
         private List<ToUnitConnection> MakeListOfToUnitConnections()
         {
-            var myConnections = new List<ToUnitConnection>();
-            foreach (var bind in _unit.ListBindsIndexes)
-            {
-                var actualBind = Windows.MainWindow.ListOfBinds.Find(b => b.Index == bind);
-                myConnections.Add(new ToUnitConnection()
+            return (from bind in _unit.ListBindsIndexes
+                select Windows.MainWindow.ListOfBinds.Find(b => b.Index == bind)
+                into actualBind
+                where !actualBind.Disabled
+                select new ToUnitConnection()
                 {
-                    ToUnit = actualBind.GetSecondUnitIndex(_unit.Index),
-                    BandWidth = actualBind.Weight
-                });
-            }
-
-            return myConnections;
+                    ToUnit = actualBind.GetSecondUnitIndex(_unit.Index), BandWidth = actualBind.Weight
+                }).ToList();
         }
 
         /// <summary>
@@ -301,7 +291,7 @@ namespace NetworksCeW.UnitWorkers
 
 
 
-            var receivedFrame = _layer3p.UnpackFrame(datagram);
+            var receivedFrame = _layer3P.UnpackFrame(datagram);
 
             if (receivedFrame == null) return;
             if (DatagramWasReceivedBefore(receivedFrame)) return;
@@ -314,18 +304,18 @@ namespace NetworksCeW.UnitWorkers
                 case Layer3Protocol.Rtp:
                     WriteLog("Received RTP");
                     
-                    _layer3p.UpdateUnitInformation(
+                    _layer3P.UpdateUnitInformation(
                         receivedFrame.Saddr, 
-                        _layer3p.GetConnectionsFromBytes(receivedFrame.Data)
+                        _layer3P.GetConnectionsFromBytes(receivedFrame.Data)
                         );
 
-                    var datagramToSend = _layer3p.PackData(
+                    var datagramToSend = _layer3P.PackData(
                                 receivedFrame.Data,
                                 _congestion,
                                 receivedFrame.Identification,
                                 receivedFrame.Flags,
                                 receivedFrame.FragmentOffset,
-                                receivedFrame.TTL,
+                                receivedFrame.Ttl,
                                 receivedFrame.Protocol,
                                 receivedFrame.Saddr,
                                 receivedFrame.Daddr
@@ -345,15 +335,15 @@ namespace NetworksCeW.UnitWorkers
                     // Send further
                     if (receivedFrame.Daddr != _unit.Index)
                     {
-                        GetBufferWorker(_layer3p.GetNextRoutingTo(receivedFrame.Daddr))
+                        GetBufferWorker(_layer3P.GetNextRoutingTo(receivedFrame.Daddr))
                             .PushDatagramToProcessOnLayer2(
-                                _layer3p.PackData(
+                                _layer3P.PackData(
                                     receivedFrame.Data,
                                     _congestion,
                                     receivedFrame.Identification,
                                     receivedFrame.Flags,
                                     receivedFrame.FragmentOffset,
-                                    receivedFrame.TTL,
+                                    receivedFrame.Ttl,
                                     receivedFrame.Protocol,
                                     receivedFrame.Saddr,
                                     receivedFrame.Daddr
@@ -372,7 +362,7 @@ namespace NetworksCeW.UnitWorkers
 
                     pseudoPacket.AddRange(receivedFrame.Data);
 
-                    var answerDatagram = _layer4p.ProcessNewSegment(
+                    var answerDatagram = _layer4P.ProcessNewSegment(
                         pseudoPacket
                         );
 
@@ -382,12 +372,12 @@ namespace NetworksCeW.UnitWorkers
 
                     var destination = Layer4Protocol.GetPseudoDestination(answerDatagram);
 
-                    GetBufferWorker(_layer3p.GetNextRoutingTo(destination))
+                    GetBufferWorker(_layer3P.GetNextRoutingTo(destination))
                         .PushDatagramToProcessOnLayer2(
-                            _layer3p.PackData(
+                            _layer3P.PackData(
                                 answerDatagram.Skip(12).ToList(),
                                 _congestion,
-                                _layer3p.GetNextId(),
+                                _layer3P.GetNextId(),
                                 2,
                                 0,
                                 100,

@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 
 namespace NetworksCeW.ProtocolLayers
 {
@@ -27,7 +26,7 @@ namespace NetworksCeW.ProtocolLayers
         public int TotalLength { get; set; }
         public int FragmentOffset { get; set; }
         public byte Protocol { get; set; }
-        public byte TTL { get; set; }
+        public byte Ttl { get; set; }
         public byte Saddr { get; set; }
         public byte Daddr { get; set; }
     }
@@ -87,7 +86,7 @@ namespace NetworksCeW.ProtocolLayers
         private readonly byte _myUnitIndex;
 
         private List<DestinationNext> _routes;
-        private List<UnitConnectionsUnits> networkTopology;
+        private readonly List<UnitConnectionsUnits> _networkTopology;
 
         private int _newDatagramId = -1;
         //public List<byte> Datagram;
@@ -95,7 +94,7 @@ namespace NetworksCeW.ProtocolLayers
         public Layer3Protocol(byte unit)
         {
             _myUnitIndex = unit;
-            networkTopology = new List<UnitConnectionsUnits>();
+            _networkTopology = new List<UnitConnectionsUnits>();
             _routes = new List<DestinationNext>();
         }
         
@@ -312,12 +311,12 @@ namespace NetworksCeW.ProtocolLayers
                 TotalLength = GetTotalLength(datagram),
                 FragmentOffset = GetOffset(datagram),
                 Protocol = GetProtocol(datagram),
-                TTL = (byte)(GetTTL(datagram)-1),
+                Ttl = (byte)(GetTTL(datagram)-1),
                 Saddr = GetSourceAddress(datagram),
                 Daddr = GetDestinationAddress(datagram),
             };
 
-            return datagramInst.TTL == 0 ? null : datagramInst;
+            return datagramInst.Ttl == 0 ? null : datagramInst;
         }
 
         #endregion
@@ -330,35 +329,25 @@ namespace NetworksCeW.ProtocolLayers
         /// </summary>
         public void UpdateNetworkTopology()
         {
-
-
-            /*
-
-
-            int iter = 0, count = networkTopology.Count;
-            while (iter != networkTopology.Count)
+            
+            int iter = 0, count = _networkTopology.Count;
+            while (iter != _networkTopology.Count)
             {
-                if (Timeout > DateTime.Now.Subtract(networkTopology[iter].UpdateTime).TotalMilliseconds)
+                if (Timeout > DateTime.Now.Subtract(_networkTopology[iter].UpdateTime).TotalMilliseconds)
                 {
                     iter++;
                     continue;
                 }
 
                 // Delete unit from all records in list
-                var unitIndex = networkTopology[iter].UnitIndex;
-                foreach (var unitInfo in networkTopology)
+                var unitIndex = _networkTopology[iter].UnitIndex;
+                foreach (var unitInfo in _networkTopology)
                     unitInfo.Connections.RemoveAll(conn => conn.ToUnit == unitIndex);
 
-                networkTopology.RemoveAt(iter);
+                _networkTopology.RemoveAt(iter);
             }
-
-
-
-
-    */
-
-
-            //if (count != networkTopology.Count)
+            
+            if (count != _networkTopology.Count)
                 RebuildRoutes();
         }
 
@@ -369,7 +358,7 @@ namespace NetworksCeW.ProtocolLayers
         /// <param name="connections"></param>
         public void UpdateUnitInformation(byte unit, List<ToUnitConnection> connections)
         {
-            var currentUnitInfo = networkTopology.Find(
+            var currentUnitInfo = _networkTopology.Find(
                 unitInfo => unitInfo.UnitIndex == unit
             );
 
@@ -380,7 +369,7 @@ namespace NetworksCeW.ProtocolLayers
                 foreach (var conn in connections)
                 {
                     // If there is a unit, to which the connection directed
-                    var unitToInfo = networkTopology.Find(
+                    var unitToInfo = _networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == conn.ToUnit
                     );
 
@@ -411,7 +400,7 @@ namespace NetworksCeW.ProtocolLayers
                 var i = 0;
                 while (i < connections.Count)
                 {
-                    var currentToUnitInfo = networkTopology.Find(
+                    var currentToUnitInfo = _networkTopology.Find(
                         unitInfo => unitInfo.UnitIndex == connections[i].ToUnit
                     );
 
@@ -447,7 +436,7 @@ namespace NetworksCeW.ProtocolLayers
                 newUnitInfo.UpdateTime = DateTime.Now;
 
                 // Add new record to units' list
-                networkTopology.Add(newUnitInfo);
+                _networkTopology.Add(newUnitInfo);
             }
         }
 
@@ -528,7 +517,7 @@ namespace NetworksCeW.ProtocolLayers
             _routes = new List<DestinationNext>();
 
             // Fill route list with possible destinations
-            foreach (var unitsInfo in networkTopology)
+            foreach (var unitsInfo in _networkTopology)
             {
                 var destination = unitsInfo.UnitIndex;
                 if (destination != _myUnitIndex)
@@ -540,7 +529,7 @@ namespace NetworksCeW.ProtocolLayers
             // Find best routes to each destination
             var passedUnits = new List<byte>() {_myUnitIndex};
 
-            var myConnections = networkTopology.Find(u => u.UnitIndex == _myUnitIndex)?.Connections;
+            var myConnections = _networkTopology.Find(u => u.UnitIndex == _myUnitIndex)?.Connections;
             if (myConnections == null)
             {
                 return;
@@ -582,7 +571,7 @@ namespace NetworksCeW.ProtocolLayers
             }
 
             // Go down through children
-            var myConnections = networkTopology.Find(u => u.UnitIndex == unit).Connections;
+            var myConnections = _networkTopology.Find(u => u.UnitIndex == unit).Connections;
             foreach (var conn in myConnections)
             {
                 var childUnit = (byte)conn.ToUnit;

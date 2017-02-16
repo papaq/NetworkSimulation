@@ -17,9 +17,11 @@ namespace NetworksCeW.UnitWorkers
         public UnitWorker UnitWorker;
 
         private TerminalWindow _terminal;
+        private readonly MainWindow _mainWindow;
 
-        public UnitTerminal(Unit unit, List<UnitTerminal> listTerminals)
+        public UnitTerminal(MainWindow window, Unit unit, List<UnitTerminal> listTerminals)
         {
+            _mainWindow = window;
             UnitInst = unit;
             _terminal = new TerminalWindow(UnitInst, UnitWorker);
             UnitWorker = new UnitWorker(this, listTerminals, UnitInst);
@@ -71,6 +73,11 @@ namespace NetworksCeW.UnitWorkers
             UnitWorker.WorkerAbort();
             UnitWorker = null;
             _terminal.Close();
+        }
+
+        public void PutAnimatedMessage(int fromUnit, int toUnit)
+        {
+            _mainWindow.InsertAnimatedFrame(fromUnit, toUnit);
         }
 
         public void WriteLog(DateTime time, string log)

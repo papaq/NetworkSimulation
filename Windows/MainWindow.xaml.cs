@@ -8,7 +8,8 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
-
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
 using NetworksCeW.Structures;
 using NetworksCeW.UnitWorkers;
 using NetworksCeW.File;
@@ -492,7 +493,7 @@ namespace NetworksCeW.Windows
                 Buffer = buffSize,
             };
 
-            ListOfTerminals.Add(new UnitTerminal(unit, ListOfTerminals));
+            ListOfTerminals.Add(new UnitTerminal(this, unit, ListOfTerminals));
 
             return unit;
         }
@@ -1361,6 +1362,7 @@ namespace NetworksCeW.Windows
         private void ButtonStartCasey_Click(object sender, RoutedEventArgs e)
         {
             ButtonStartCasey.IsEnabled = false;
+
             foreach (var terminal in ListOfTerminals)
             {
                 terminal?.StartWorker();
@@ -1375,6 +1377,43 @@ namespace NetworksCeW.Windows
             }
 
             Application.Current.Shutdown();
+        }
+
+        public void InsertAnimatedFrame(int fromUnit, int toUnit)
+        {
+            Dispatcher.Invoke((() => {
+
+                var img = new Image();
+                img.BeginInit();
+                var uriSource = new Uri("/Resources/svas.png", UriKind.Relative);
+                img.EndInit();
+                img.Source = new BitmapImage(uriSource);
+
+                img.Width = 50;
+                img.Height = 50;
+                img.Stretch = Stretch.Fill;
+
+                var point = _listOfUnits.Find(unit => unit.Index == fromUnit).Position;
+                var top = point.Y - 25;
+                var left = point.X - 25;
+                Canvas.SetTop(img, top);
+                Canvas.SetLeft(img, left);
+                Panel.SetZIndex(img, 1);
+
+                var newPoint = _listOfUnits.Find(unit => unit.Index == toUnit).Position;
+                var newTop = newPoint.Y - 20;
+                var newLeft = newPoint.X - 20;
+
+                var trans = new TranslateTransform();
+                img.RenderTransform = trans;
+                var anim1 = new DoubleAnimation(0, newLeft - left, TimeSpan.FromSeconds(1));
+                var anim2 = new DoubleAnimation(0, newTop - top, TimeSpan.FromSeconds(1));
+                anim2.Completed += (s, e) => MyCanvas.Children.Remove(img);
+
+                MyCanvas.Children.Add(img);
+                trans.BeginAnimation(TranslateTransform.XProperty, anim1);
+                trans.BeginAnimation(TranslateTransform.YProperty, anim2);
+            }));
         }
     }
 
