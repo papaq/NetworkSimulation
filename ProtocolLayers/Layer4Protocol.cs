@@ -1,13 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics.Eventing;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Documents;
 using NetworksCeW.UnitWorkers;
-using NetworksCeW.Windows;
 
 namespace NetworksCeW.ProtocolLayers
 {
@@ -36,9 +31,16 @@ namespace NetworksCeW.ProtocolLayers
             return (ToUnitIndex == toUnit && PortHere == portHere && PortThere == portThere);
         }
 
-        protected void Push()
+        protected void Push(List<byte> data)
         {
-            WriteLog("Pushed");
+            if (data.Count > 10)
+            {
+                WriteLog("\"" + Encoding.UTF8.GetString(data.Take(10).ToArray()) + "...\"");
+            }
+            else
+            {
+                WriteLog("\"" + Encoding.UTF8.GetString(data.ToArray()) + "\"");
+            }
         }
         private void WriteLog(string log)
         {
@@ -89,29 +91,15 @@ namespace NetworksCeW.ProtocolLayers
 
         private Status _transmissionStatus;
         public bool IsClosed => _transmissionStatus == Status.Closing;
-        public bool? Sender;
 
         private int _nextSendSequence, _nextReceivedSequence;
-
         
-        public int NextToBeTransmited
-        {
-            get
-            {
-                var part = _segments[_segments.Count - 1];
-                return part.DataOffset + part.Data.Count;
-            }
-        }
-
         private List<Segment> _segments;
         private readonly List<SentSegment> _sentSegments;
-
-        private readonly UnitTerminal _myTerminal;
-
+        
         public TransmissionControlBlock(byte unitHere, byte unitThere, int portHere, int portThere, UnitTerminal terminal)
             : base(unitHere, unitThere, portHere, portThere, terminal)
         {
-            _myTerminal = terminal;
             _transmissionStatus = Status.Listen;
             _sentSegments = new List<SentSegment>();
         }
@@ -179,9 +167,7 @@ namespace NetworksCeW.ProtocolLayers
                 _segments.Add(new Segment(sequenceNumber, s));
                 sequenceNumber += s.Count;
             });
-
-            Sender = true; /////////////////////////////////////////////////////////////////////////////////
-
+            
             // Return SYN to init channel
             _transmissionStatus = Status.SynSend;
 
@@ -206,10 +192,7 @@ namespace NetworksCeW.ProtocolLayers
             return rnd.Next(0xF, 0x7FFFFFF);
         }
 
-
-
-
-
+        
         private List<byte> ReceiveFirstPacket(List<byte> packet)
         {
             var unpacked = new TcpInstance(packet);
@@ -219,7 +202,6 @@ namespace NetworksCeW.ProtocolLayers
             // Asks for connection, then return SYN ACK
 
             // Write all initial numbers
-            /////////////////////////////////////////_segments = new List<Segment> {new Segment(unpacked.SequenceNum, null)};
             _nextReceivedSequence = unpacked.SequenceNum + 1;
             _nextSendSequence = new Random().Next();
 
@@ -356,7 +338,7 @@ namespace NetworksCeW.ProtocolLayers
 
                             if (unpacked.Psh)
                             {
-                                Push();
+                                Push(unpacked.Data);
                             }
 
                             return MakePacketWithPseudoHeader(
@@ -482,7 +464,7 @@ namespace NetworksCeW.ProtocolLayers
 
                         if (unpacked.Psh)
                         {
-                            Push();
+                            Push(unpacked.Data);
                         }
 
                         return MakePacketWithPseudoHeader(
@@ -673,7 +655,7 @@ namespace NetworksCeW.ProtocolLayers
                 return;
             }
 
-            Push();
+            Push(udpInst.Data);
         }
 
         #endregion
@@ -1107,6 +1089,7 @@ namespace NetworksCeW.ProtocolLayers
 
         public List<byte> GetNewUdpPacketToSend()
         {
+
             return (from hcb in _allActiveHosts where hcb.isSender select hcb.GetNextPacket()).FirstOrDefault();
         }
 

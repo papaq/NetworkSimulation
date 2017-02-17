@@ -209,7 +209,9 @@ namespace NetworksCeW.UnitWorkers
 
             // Spoil frame (or not)
             if (frame.Count > 7)
-                SpoilFrame(frame);
+            {
+                // SpoilFrame(frame);
+            }
 
             _endPointWorker?.PutFrameToThisBuffer(frame);
         }
@@ -649,7 +651,7 @@ namespace NetworksCeW.UnitWorkers
                 // not yet full
                 if (_sentFrames.Count >= WINDOW) continue;
 
-                Thread.Sleep(150);
+                //Thread.Sleep(150);
                 
                 var datagramToSend = PullDatagramToProcessOnLayer2();
 

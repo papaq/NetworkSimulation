@@ -224,29 +224,20 @@ namespace NetworksCeW.UnitWorkers
                 {
                     var buffer = GetBufferWorker(Layer4Protocol.GetPseudoDestination(nextUdp));
                     buffer.PushDatagramToProcessOnLayer2(
-                            _layer3P.PackData(
-                                nextUdp.Skip(12).ToList(),
-                                _congestion,
-                                _layer3P.GetNextId(),
-                                2,
-                                0,
-                                100,
-                                Layer4Protocol.GetProtocolCode(nextUdp),
-                                _unit.Index,
-                                Layer4Protocol.GetPseudoDestination(nextUdp)
-                            ));
+                        _layer3P.PackData(
+                            nextUdp.Skip(12).ToList(),
+                            _congestion,
+                            _layer3P.GetNextId(),
+                            2,
+                            0,
+                            100,
+                            Layer4Protocol.GetProtocolCode(nextUdp),
+                            _unit.Index,
+                            Layer4Protocol.GetPseudoDestination(nextUdp)
+                        ));
 
                     WriteLog("UDP sent");
                 }
-
-                // Send datagrams received from terminal or else
-
-
-
-
-
-
-                Thread.Sleep(200);
             }
         }
 
@@ -270,9 +261,11 @@ namespace NetworksCeW.UnitWorkers
                 Layer3Protocol.Brdcst );
         }
 
-        private BufferWorker GetBufferWorker(byte toUnit)
+        private BufferWorker GetBufferWorker(byte toUnit, byte fromUnit = 254)
         {
-            var nextUnit = _layer3P.GetNextRoutingTo(toUnit);
+            var nextUnit = fromUnit == 254
+                ? _layer3P.GetNextRoutingTo(toUnit, fromUnit)
+                : _layer3P.GetNextRoutingTo(toUnit);
             return ListBufferWorkers.Find(buffer => buffer.EndUnitIndex == nextUnit);
         }
 
@@ -346,7 +339,7 @@ namespace NetworksCeW.UnitWorkers
                     // Send further
                     if (receivedFrame.Daddr != _unit.Index)
                     {
-                        GetBufferWorker(_layer3P.GetNextRoutingTo(receivedFrame.Daddr))
+                        GetBufferWorker(receivedFrame.Daddr, receivedFrame.Saddr)
                             .PushDatagramToProcessOnLayer2(
                                 _layer3P.PackData(
                                     receivedFrame.Data,

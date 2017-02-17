@@ -81,12 +81,12 @@ namespace NetworksCeW.ProtocolLayers
         public const byte Rtp = 0x55;
         public const byte Brdcst = 0xFF;
 
-        public const int Timeout = 40000;
+        public const int Timeout = 50000;
 
         private readonly byte _myUnitIndex;
 
         private List<DestinationNext> _routes;
-        private readonly List<UnitConnectionsUnits> _networkTopology;
+        private List<UnitConnectionsUnits> _networkTopology;
 
         private int _newDatagramId = -1;
         //public List<byte> Datagram;
@@ -347,8 +347,7 @@ namespace NetworksCeW.ProtocolLayers
                 _networkTopology.RemoveAt(iter);
             }
             
-            if (count != _networkTopology.Count)
-                RebuildRoutes();
+            RebuildRoutes();
         }
 
         /// <summary>
@@ -592,7 +591,7 @@ namespace NetworksCeW.ProtocolLayers
             return _routes.Select(route => route.DestUnitIndex).ToList();
         }
 
-        public byte GetNextRoutingTo(byte destination)
+        public byte GetNextRoutingTo(byte destination, byte notThrough = 254)
         {
             if (_routes.Count == 0)
             {
@@ -605,7 +604,15 @@ namespace NetworksCeW.ProtocolLayers
                 throw new Exception("There is now such route");
             }
 
-            return _routes.Find(route => route.DestUnitIndex == destination).NextUnitIndexW;
+            if (r.NextUnitIndexW == notThrough)
+            {
+                return _networkTopology.Find(
+                    dest => dest.UnitIndex != notThrough 
+                    && dest.Connections.Exists(con => con.ToUnit == _myUnitIndex)
+                    ).UnitIndex;
+            }
+
+            return r.NextUnitIndexW;
         }
 
         #endregion

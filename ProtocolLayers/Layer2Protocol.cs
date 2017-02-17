@@ -133,22 +133,22 @@ namespace NetworksCeW.ProtocolLayers
         }
 
 
-        public Layer2ProtocolFrameInstance UnpackFrame(List<byte> data)
+        public Layer2ProtocolFrameInstance UnpackFrame(List<byte> frame)
         {
-            if (data == null)
+            if (frame == null)
                 return null;
 
-            var frameChcksum = data.Skip(data.Count - 3).Take(2).ToList();
-            var newChcksum = PutFCS(data);
+            var frameChcksum = frame.Skip(frame.Count - 3).Take(2).ToList();
+            var newChcksum = PutFCS(frame);
             if (frameChcksum[0] != newChcksum[0] || frameChcksum[1] != newChcksum[1])
                 return null;
 
             var frameInst = new Layer2ProtocolFrameInstance
             {
-                Data = data.Skip(2).Take(data.Count - 5).ToList()
+                Data = frame.Skip(2).Take(frame.Count - 5).ToList()
             };
 
-            var ctrlByte = data[1];
+            var ctrlByte = frame[1];
             frameInst.Type = GetFrameType(ctrlByte);
             frameInst.FrameNum = GetFrameIndex(ctrlByte);
 
